@@ -10,27 +10,33 @@ Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '');
 const GRONINGEN: [number, number] = [6.5665, 53.2194];
 const TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 
-// Inverted mask: grote wereldrechthoek met een gat ter grootte van gemeente Groningen.
-// De FillLayer kleurt alles buiten het gat donker.
-// Buiten ring CCW, Groningen-ring CW (gat).
-const GRONINGEN_MASKER = {
+// Vereenvoudigde grens van Nederland als gesloten polygon.
+const NEDERLAND_GRENS = {
   type: 'Feature' as const,
   geometry: {
     type: 'Polygon' as const,
-    coordinates: [
-      // Wereld (buitenring, CCW)
-      [[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]],
-      // Gemeente Groningen (binnenring = gat, CW = omgekeerde volgorde)
-      [
-        [6.4, 53.15],
-        [6.35, 53.22],
-        [6.45, 53.32],
-        [6.7, 53.35],
-        [6.85, 53.3],
-        [6.8, 53.15],
-        [6.4, 53.15],
-      ],
-    ],
+    coordinates: [[
+      [3.37, 51.37],
+      [3.85, 51.50],
+      [4.00, 51.75],
+      [3.95, 52.05],
+      [4.55, 52.95],
+      [4.85, 53.10],
+      [5.30, 53.45],
+      [6.20, 53.52],
+      [7.25, 53.30],
+      [7.05, 52.95],
+      [6.90, 52.65],
+      [7.00, 52.30],
+      [6.75, 51.90],
+      [6.10, 51.85],
+      [5.90, 51.50],
+      [5.75, 51.30],
+      [5.50, 51.30],
+      [4.75, 51.50],
+      [4.20, 51.37],
+      [3.37, 51.37],
+    ]],
   },
   properties: {},
 };
@@ -166,13 +172,14 @@ export default function KaartScreen() {
           />
           <Mapbox.UserLocation visible />
 
-          {/* Donkere overlay buiten gemeente Groningen */}
-          <Mapbox.ShapeSource id="groningen-masker" shape={GRONINGEN_MASKER}>
-            <Mapbox.FillLayer
-              id="groningen-overlay"
+          {/* Gekleurde rand om Nederland */}
+          <Mapbox.ShapeSource id="nederland-grens" shape={NEDERLAND_GRENS}>
+            <Mapbox.LineLayer
+              id="nederland-border"
               style={{
-                fillColor: '#1a1a1a',
-                fillOpacity: 0.75,
+                lineColor: '#1A73E8',
+                lineWidth: 2.5,
+                lineOpacity: 0.85,
               }}
             />
           </Mapbox.ShapeSource>
