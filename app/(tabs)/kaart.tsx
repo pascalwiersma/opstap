@@ -135,6 +135,7 @@ export default function KaartScreen() {
           styleJSON={styleJSON}
           logoEnabled={false}
           attributionEnabled={false}
+          scaleBarEnabled={false}
         >
           <Mapbox.Camera
             ref={cameraRef}
