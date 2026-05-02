@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.pascalwiersma.opstap"
+      "bundleIdentifier": "com.pascalwiersma.opstap",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "OpStap gebruikt je locatie om je op de kaart te tonen."
+      }
     },
     "android": {
       "adaptiveIcon": {
