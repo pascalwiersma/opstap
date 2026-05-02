@@ -42,3 +42,8 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+.mcp.local.json
+
+# Supabase CLI tijdelijke bestanden
+supabase/.temp/
