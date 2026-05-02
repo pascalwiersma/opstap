@@ -10,6 +10,31 @@ Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '');
 const GRONINGEN: [number, number] = [6.5665, 53.2194];
 const TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 
+// Inverted mask: grote wereldrechthoek met een gat ter grootte van gemeente Groningen.
+// De FillLayer kleurt alles buiten het gat donker.
+// Buiten ring CCW, Groningen-ring CW (gat).
+const GRONINGEN_MASKER = {
+  type: 'Feature' as const,
+  geometry: {
+    type: 'Polygon' as const,
+    coordinates: [
+      // Wereld (buitenring, CCW)
+      [[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]],
+      // Gemeente Groningen (binnenring = gat, CW = omgekeerde volgorde)
+      [
+        [6.4, 53.15],
+        [6.35, 53.22],
+        [6.45, 53.32],
+        [6.7, 53.35],
+        [6.85, 53.3],
+        [6.8, 53.15],
+        [6.4, 53.15],
+      ],
+    ],
+  },
+  properties: {},
+};
+
 const KLEUREN = {
   achtergrond: '#E8F5E9',
   water: '#B2EBF2',
@@ -30,6 +55,9 @@ type MapLayer = {
 
 const HOOFDWEG_TOKENS = ['motorway', 'trunk', 'primary', 'secondary', 'major'];
 const WATER_IDS = ['water', 'water-shadow', 'waterway'];
+
+// Plaatsnamen (settlement/country) wél tonen, rest van de symbolen niet.
+const PLAATSNAAM_TOKENS = ['settlement', 'country', 'state', 'continent'];
 
 function processLayer(layer: MapLayer): MapLayer {
   const { id, type } = layer;
@@ -67,13 +95,17 @@ function processLayer(layer: MapLayer): MapLayer {
   return layer;
 }
 
-async function fetchStyleZonderLabels(): Promise<string> {
+async function fetchStyle(): Promise<string> {
   const res = await fetch(
     `https://api.mapbox.com/styles/v1/mapbox/light-v11?access_token=${TOKEN}`
   );
   const style = await res.json();
   style.layers = (style.layers as MapLayer[])
-    .filter((layer) => layer.type !== 'symbol')
+    .filter((layer) => {
+      if (layer.type !== 'symbol') return true;
+      // Alleen plaatsnamen (steden, landen) doorlaten
+      return PLAATSNAAM_TOKENS.some((t) => layer.id.includes(t));
+    })
     .map(processLayer);
   return JSON.stringify(style);
 }
@@ -86,7 +118,7 @@ export default function KaartScreen() {
   const gecentreerdRef = useRef(false);
 
   useEffect(() => {
-    fetchStyleZonderLabels().then(setStyleJSON).catch(console.error);
+    fetchStyle().then(setStyleJSON).catch(console.error);
 
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -96,7 +128,6 @@ export default function KaartScreen() {
     })();
   }, []);
 
-  // Centreer eenmalig op gebruiker zodra locatie én kaart beschikbaar zijn
   useEffect(() => {
     if (!locatie || !styleJSON || gecentreerdRef.current) return;
     gecentreerdRef.current = true;
@@ -134,6 +165,17 @@ export default function KaartScreen() {
             defaultSettings={{ centerCoordinate: GRONINGEN, zoomLevel: 13 }}
           />
           <Mapbox.UserLocation visible />
+
+          {/* Donkere overlay buiten gemeente Groningen */}
+          <Mapbox.ShapeSource id="groningen-masker" shape={GRONINGEN_MASKER}>
+            <Mapbox.FillLayer
+              id="groningen-overlay"
+              style={{
+                fillColor: '#1a1a1a',
+                fillOpacity: 0.75,
+              }}
+            />
+          </Mapbox.ShapeSource>
         </Mapbox.MapView>
       )}
 
