@@ -18,7 +18,7 @@ export default function VerifyScreen() {
     setLoading(true);
     setError(null);
 
-    const { error: authError } = await supabase.auth.verifyOtp({
+    const { data, error: authError } = await supabase.auth.verifyOtp({
       phone: phone ?? '',
       token: code,
       type: 'sms',
@@ -30,6 +30,10 @@ export default function VerifyScreen() {
       setError(authError.message);
       return;
     }
+
+    // TIJDELIJK: verwijderen na debug
+    console.log('[debug] sessie na verificatie:', data.session !== null);
+    console.log('[debug] user id:', data.session?.user.id ?? 'geen');
 
     router.replace('/(tabs)/kaart');
   }
