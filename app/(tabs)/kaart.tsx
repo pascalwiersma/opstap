@@ -1,30 +1,167 @@
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
-import { StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
 
 Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '');
 
 const GRONINGEN: [number, number] = [6.5665, 53.2194];
+const TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
+
+const KLEUREN = {
+  achtergrond: '#E8F5E9',
+  water: '#B2EBF2',
+  hoofdweg: '#B0BEC5',
+  hoofdwegCase: '#90A4AE',
+  straatje: '#CFD8DC',
+  straatjeCase: '#B0BEC5',
+  gebouw: '#FFFFFF',
+  gebouwOutline: '#E0E8E4',
+  park: '#C8E6C9',
+} as const;
+
+type MapLayer = {
+  id: string;
+  type: string;
+  paint?: Record<string, unknown>;
+};
+
+const HOOFDWEG_TOKENS = ['motorway', 'trunk', 'primary', 'secondary', 'major'];
+const WATER_IDS = ['water', 'water-shadow', 'waterway'];
+
+function processLayer(layer: MapLayer): MapLayer {
+  const { id, type } = layer;
+
+  if (type === 'background') {
+    return { ...layer, paint: { ...layer.paint, 'background-color': KLEUREN.achtergrond } };
+  }
+
+  if (type === 'fill') {
+    if (WATER_IDS.some((w) => id === w || id.startsWith(w + '-'))) {
+      return { ...layer, paint: { ...layer.paint, 'fill-color': KLEUREN.water } };
+    }
+    if (id.includes('park') || id.includes('grass') || id.includes('national-park') || id.includes('scrub')) {
+      return { ...layer, paint: { ...layer.paint, 'fill-color': KLEUREN.park } };
+    }
+    if (id.includes('building')) {
+      return { ...layer, paint: { ...layer.paint, 'fill-color': KLEUREN.gebouw, 'fill-outline-color': KLEUREN.gebouwOutline } };
+    }
+  }
+
+  if (type === 'line') {
+    if (id.includes('waterway') || id.startsWith('water')) {
+      return { ...layer, paint: { ...layer.paint, 'line-color': KLEUREN.water } };
+    }
+    if (id.startsWith('road-') || id.includes('-road')) {
+      const isCase = id.endsWith('-case');
+      const isHoofdweg = HOOFDWEG_TOKENS.some((t) => id.includes(t));
+      const kleur = isHoofdweg
+        ? (isCase ? KLEUREN.hoofdwegCase : KLEUREN.hoofdweg)
+        : (isCase ? KLEUREN.straatjeCase : KLEUREN.straatje);
+      return { ...layer, paint: { ...layer.paint, 'line-color': kleur } };
+    }
+  }
+
+  return layer;
+}
+
+async function fetchStyleZonderLabels(): Promise<string> {
+  const res = await fetch(
+    `https://api.mapbox.com/styles/v1/mapbox/light-v11?access_token=${TOKEN}`
+  );
+  const style = await res.json();
+  style.layers = (style.layers as MapLayer[])
+    .filter((layer) => layer.type !== 'symbol')
+    .map(processLayer);
+  return JSON.stringify(style);
+}
 
 export default function KaartScreen() {
+  const [styleJSON, setStyleJSON] = useState<string | null>(null);
+  const [locatie, setLocatie] = useState<[number, number] | null>(null);
+  const cameraRef = useRef<React.ElementRef<typeof Mapbox.Camera>>(null);
+  const { bottom } = useSafeAreaInsets();
+  const gecentreerdRef = useRef(false);
+
+  useEffect(() => {
+    fetchStyleZonderLabels().then(setStyleJSON).catch(console.error);
+
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const pos = await Location.getCurrentPositionAsync({});
+      setLocatie([pos.coords.longitude, pos.coords.latitude]);
+    })();
+  }, []);
+
+  // Centreer eenmalig op gebruiker zodra locatie én kaart beschikbaar zijn
+  useEffect(() => {
+    if (!locatie || !styleJSON || gecentreerdRef.current) return;
+    gecentreerdRef.current = true;
+    setTimeout(() => {
+      cameraRef.current?.setCamera({
+        centerCoordinate: locatie,
+        zoomLevel: 15,
+        animationDuration: 800,
+      });
+    }, 300);
+  }, [locatie, styleJSON]);
+
+  async function centreerOpLocatie() {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    if (status !== 'granted') return;
+    const pos = await Location.getCurrentPositionAsync({});
+    cameraRef.current?.setCamera({
+      centerCoordinate: [pos.coords.longitude, pos.coords.latitude],
+      zoomLevel: 15,
+      animationDuration: 500,
+    });
+  }
+
   return (
     <View style={styles.container}>
-      <Mapbox.MapView
-        style={StyleSheet.absoluteFillObject}
-        styleURL="mapbox://styles/mapbox/dark-v11"
-        logoEnabled={false}
-        attributionEnabled={false}
+      {styleJSON && (
+        <Mapbox.MapView
+          style={StyleSheet.absoluteFillObject}
+          styleJSON={styleJSON}
+          logoEnabled={false}
+          attributionEnabled={false}
+        >
+          <Mapbox.Camera
+            ref={cameraRef}
+            defaultSettings={{ centerCoordinate: GRONINGEN, zoomLevel: 13 }}
+          />
+          <Mapbox.UserLocation visible />
+        </Mapbox.MapView>
+      )}
+
+      <Pressable
+        style={[styles.locatieKnop, { bottom: bottom + 90 }]}
+        onPress={centreerOpLocatie}
       >
-        <Mapbox.Camera
-          defaultSettings={{
-            centerCoordinate: GRONINGEN,
-            zoomLevel: 13,
-          }}
-        />
-      </Mapbox.MapView>
+        <Ionicons name="navigate" size={22} color="#1A73E8" />
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  locatieKnop: {
+    position: 'absolute',
+    right: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
 });
