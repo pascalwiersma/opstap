@@ -1,5 +1,4 @@
-import { Redirect } from 'expo-router';
-
+// Navigatie wordt afgehandeld door _layout.tsx op basis van de sessie
 export default function Index() {
-  return <Redirect href="/(tabs)/kaart" />;
+  return null;
 }
