@@ -213,12 +213,17 @@ npx supabase gen types typescript --project-id jouw-project-id > types/supabase.
 - Husky pre-commit hook zodat rommelige code er nooit in komt
 
 ### Git
-- Nooit direct op `main` committen
+- Nooit direct op `main` of `develop` committen
 - Branch structuur:
-  - `main` — altijd werkende code
-  - `develop` — lopende ontwikkeling
-  - `feature/naam` — nieuwe functionaliteit
-  - `fix/naam` — bugfixes
+  - `main` — altijd werkende, stabiele code. Alleen merges vanuit `develop`.
+  - `develop` — integratiebranch voor lopende ontwikkeling
+  - `feature/naam` — nieuwe functionaliteit, altijd vanuit `develop`
+  - `fix/naam` — bugfixes, altijd vanuit `develop`
+- Workflow:
+  1. Branch altijd vanuit `develop`: `git checkout -b feature/naam`
+  2. Werk op de feature branch en commit daar
+  3. Als klaar en getest: merge terug naar `develop`
+  4. Alleen stabiele, geteste versies gaan van `develop` naar `main`
 - Conventional Commits:
   - `feat: event aanmaken scherm toegevoegd`
   - `fix: groepschat melding werkte niet op Android`
