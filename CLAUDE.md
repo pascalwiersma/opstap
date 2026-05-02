@@ -1,4 +1,10 @@
-# OpStap - CLAUDE.md
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+---
+
+# OpStap
 
 ## Wat is OpStap?
 
@@ -25,6 +31,32 @@ OpStap is een kaartgebaseerde sociale app voor studenten en jonge werkenden (18-
 | Chat | Stream Chat met React Native SDK |
 | Push notificaties | Expo Notifications |
 | Admin tool | Next.js (aparte repo) |
+
+---
+
+## Commands
+
+```bash
+# Ontwikkeling
+npx expo start               # Start development server
+npx expo start --ios         # Start op iOS simulator
+npx expo start --android     # Start op Android emulator
+
+# Linting en formatting
+npx eslint .                 # Lint alle bestanden
+npx prettier --write .       # Formateer alle bestanden
+
+# Tests
+npx jest                     # Alle tests
+npx jest --testPathPattern=auth  # Specifieke test suite
+
+# Supabase types genereren na schema wijzigingen
+npx supabase gen types typescript --project-id <project-id> > types/supabase.ts
+
+# Supabase lokaal draaien
+npx supabase start           # Start lokale Supabase instantie
+npx supabase db reset        # Reset lokale database met migrations
+```
 
 ---
 
@@ -259,6 +291,18 @@ npx supabase gen types typescript --project-id jouw-project-id > types/supabase.
 - EU hosting via Supabase voor GDPR compliance
 - Supabase Realtime gebruiken voor live event updates op de kaart
 - Stream Chat voor groepschat, niet zelf bouwen
+
+---
+
+## Architectuurpatronen
+
+- **Navigatie**: Expo Router met file-based routing. `(auth)/` en `(tabs)/` zijn route groups (beïnvloeden URL-structuur niet). Dynamic routes als `event/[id].tsx` en `venue/[id].tsx`.
+- **State**: Zustand stores in `stores/`. Server state (Supabase queries) niet in Zustand opslaan — gebruik React state of hooks met directe Supabase calls.
+- **Services**: `services/supabase.ts` exporteert één geconfigureerde client; `services/stream.ts` doet hetzelfde voor Stream Chat. Gebruik deze singletons overal, maak geen nieuwe clients aan.
+- **Types**: `types/supabase.ts` is gegenereerd door de CLI en nooit handmatig aanpassen. Eigen types staan in `types/index.ts`.
+- **Locatiedata**: Venues hebben zowel `lat`/`lng` (voor app gebruik) als een PostGIS `location` kolom (voor proximity queries). Bij nieuwe venue inserts altijd beide vullen.
+- **Trust score**: Staat op het `profiles` record en wordt aangepast via attendance records na een event. Niet direct aanpassen vanuit de client — dit loopt via Supabase database functies.
+- **Stream Chat kanalen**: Worden aangemaakt wanneer een event_registration wordt goedgekeurd. Kanaal ID = `event-{event_id}`.
 
 ---
 
