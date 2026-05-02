@@ -10,36 +10,6 @@ Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '');
 const GRONINGEN: [number, number] = [6.5665, 53.2194];
 const TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 
-// Vereenvoudigde grens van Nederland als gesloten polygon.
-const NEDERLAND_GRENS = {
-  type: 'Feature' as const,
-  geometry: {
-    type: 'Polygon' as const,
-    coordinates: [[
-      [3.37, 51.37],
-      [3.85, 51.50],
-      [4.00, 51.75],
-      [3.95, 52.05],
-      [4.55, 52.95],
-      [4.85, 53.10],
-      [5.30, 53.45],
-      [6.20, 53.52],
-      [7.25, 53.30],
-      [7.05, 52.95],
-      [6.90, 52.65],
-      [7.00, 52.30],
-      [6.75, 51.90],
-      [6.10, 51.85],
-      [5.90, 51.50],
-      [5.75, 51.30],
-      [5.50, 51.30],
-      [4.75, 51.50],
-      [4.20, 51.37],
-      [3.37, 51.37],
-    ]],
-  },
-  properties: {},
-};
 
 const KLEUREN = {
   achtergrond: '#E8F5E9',
@@ -172,17 +142,6 @@ export default function KaartScreen() {
           />
           <Mapbox.UserLocation visible />
 
-          {/* Gekleurde rand om Nederland */}
-          <Mapbox.ShapeSource id="nederland-grens" shape={NEDERLAND_GRENS}>
-            <Mapbox.LineLayer
-              id="nederland-border"
-              style={{
-                lineColor: '#1A73E8',
-                lineWidth: 2.5,
-                lineOpacity: 0.85,
-              }}
-            />
-          </Mapbox.ShapeSource>
         </Mapbox.MapView>
       )}
 
