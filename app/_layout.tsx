@@ -34,11 +34,11 @@ export default function RootLayout() {
     }
   }, [session, segments]);
 
-  // Toon niets totdat de sessie bekend is om een flits naar het verkeerde scherm te voorkomen
-  if (session === undefined) return null;
-
+  // Stack wordt altijd gerenderd zodat de router geïnitialiseerd is
+  // voordat router.replace() wordt aangeroepen.
   return (
     <Stack>
+      <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="event/aanmaken" options={{ title: 'Event aanmaken' }} />
