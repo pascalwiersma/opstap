@@ -156,7 +156,7 @@ export default function ProfielScreen() {
             </Pressable>
           </View>
 
-          <Text style={styles.sectieKop}>Over OpStap</Text>
+          <Text style={styles.sectieKop}>Over de app</Text>
           <View style={styles.kaartenStapel}>
             <Pressable style={styles.rijKaart} onPress={binnenkort}>
               <Text style={styles.rijLabel}>Helpcentrum</Text>
