@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../services/supabase';
 import { COLORS } from '../../constants/colors';
+import { getPostAuthHref } from '../../hooks/profileOnboarding';
 
 function maskPhone(p: string): string {
   if (!p || p.length < 8) return p ?? '';
@@ -68,7 +69,8 @@ export default function VerifyScreen() {
       return;
     }
 
-    router.replace('/(tabs)/kaart');
+    const href = await getPostAuthHref(data.session.user.id);
+    router.replace(href);
   }
 
   async function handleResend() {

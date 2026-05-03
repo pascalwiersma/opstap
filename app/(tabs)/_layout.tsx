@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, Tabs, usePathname } from 'expo-router';
 import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import { PlatformPressable } from '@react-navigation/elements';
 import { Session } from '@supabase/supabase-js';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
+import { isProfileOnboardingComplete } from '../../hooks/profileOnboarding';
 
 const ORANJE = '#FF6B35';
 
@@ -57,7 +58,9 @@ function IncheckenOranjeRond({ children: _negeren, ...rest }: BottomTabBarButton
 }
 
 export default function TabsLayout() {
+  const pathname = usePathname();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [onboardingAfgerond, setOnboardingAfgerond] = useState<boolean | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -67,8 +70,24 @@ export default function TabsLayout() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!session?.user) {
+      setOnboardingAfgerond(null);
+      return;
+    }
+    let weg = false;
+    isProfileOnboardingComplete(session.user.id).then((ok) => {
+      if (!weg) setOnboardingAfgerond(ok);
+    });
+    return () => {
+      weg = true;
+    };
+  }, [session?.user?.id, pathname]);
+
   if (session === undefined) return null;
   if (!session) return <Redirect href="/(auth)/register" />;
+  if (onboardingAfgerond === null) return null;
+  if (!onboardingAfgerond) return <Redirect href="/onboarding" />;
 
   return (
     <Tabs

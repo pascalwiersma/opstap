@@ -47,7 +47,8 @@
         {
           "locationWhenInUsePermission": "OpStap gebruikt je locatie om je op de kaart te tonen."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }

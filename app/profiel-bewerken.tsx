@@ -1,17 +1,40 @@
-import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { GeboortedatumKiezer } from '../components/GeboortedatumKiezer';
 import { supabase } from '../services/supabase';
 import { COLORS } from '../constants/colors';
+import {
+  defaultGeboorteDatum,
+  formatGeboorteDb,
+  grenzenGeboortedatum,
+  leeftijdUitGeboortedatum,
+  parseGeboorteDb,
+  validatieGeboortedatum,
+} from '../utils/geboorte';
 
 export default function ProfielBewerkScreen() {
   const { top, bottom } = useSafeAreaInsets();
   const [naam, setNaam] = useState('');
-  const [leeftijd, setLeeftijd] = useState('');
+  const [email, setEmail] = useState('');
+  const [geboorteDatum, setGeboorteDatum] = useState(defaultGeboorteDatum);
   const [bio, setBio] = useState('');
   const [bezig, setBezig] = useState(false);
+
+  const grenzen = useMemo(() => grenzenGeboortedatum(), []);
+  const geboorteCheck = useMemo(() => validatieGeboortedatum(geboorteDatum), [geboorteDatum]);
 
   useEffect(() => {
     (async () => {
@@ -20,13 +43,20 @@ export default function ProfielBewerkScreen() {
       if (!user) return;
       const { data } = await supabase
         .from('profiles')
-        .select('name, age, bio')
+        .select('name, age, bio, email, birth_date')
         .eq('id', user.id)
         .single();
       if (data) {
         setNaam(data.name ?? '');
-        setLeeftijd(data.age?.toString() ?? '');
+        setEmail(data.email ?? '');
         setBio(data.bio ?? '');
+        const parsed = parseGeboorteDb(data.birth_date);
+        if (parsed) setGeboorteDatum(parsed);
+        else if (typeof data.age === 'number' && data.age > 0) {
+          const d = new Date();
+          d.setFullYear(d.getFullYear() - data.age);
+          setGeboorteDatum(d);
+        }
       }
     })();
   }, []);
@@ -36,15 +66,25 @@ export default function ProfielBewerkScreen() {
       Alert.alert('Naam vereist', 'Voer een naam in om op te slaan.');
       return;
     }
+    if (!geboorteCheck.ok) {
+      Alert.alert('Geboortedatum', geboorteCheck.message);
+      return;
+    }
+
     setBezig(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setBezig(false); return; }
+    if (!user) {
+      setBezig(false);
+      return;
+    }
 
     const { error } = await supabase
       .from('profiles')
       .update({
         name: naam.trim(),
-        age: leeftijd ? parseInt(leeftijd, 10) : null,
+        email: email.trim() ? email.trim().toLowerCase() : null,
+        birth_date: formatGeboorteDb(geboorteDatum),
+        age: geboorteCheck.age,
         bio: bio.trim() || null,
       })
       .eq('id', user.id);
@@ -92,16 +132,33 @@ export default function ProfielBewerkScreen() {
           </View>
 
           <View style={styles.veld}>
-            <Text style={styles.veldLabel}>Leeftijd</Text>
+            <Text style={styles.veldLabel}>E-mail</Text>
             <TextInput
               style={styles.input}
-              value={leeftijd}
-              onChangeText={setLeeftijd}
-              placeholder="Bijv. 23"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="naam@voorbeeld.nl"
               placeholderTextColor={COLORS.textLight}
-              keyboardType="number-pad"
-              maxLength={2}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              textContentType="emailAddress"
+              returnKeyType="next"
             />
+          </View>
+
+          <View style={styles.veld}>
+            <Text style={styles.veldLabel}>Geboortedatum</Text>
+            <Text style={styles.veldSub}>Leeftijd: {leeftijdUitGeboortedatum(geboorteDatum)} jaar</Text>
+            <GeboortedatumKiezer
+              value={geboorteDatum}
+              minimumDate={grenzen.min}
+              maximumDate={grenzen.max}
+              onChange={setGeboorteDatum}
+            />
+            {!geboorteCheck.ok ? (
+              <Text style={styles.veldFout}>{geboorteCheck.message}</Text>
+            ) : null}
           </View>
 
           <View style={styles.veld}>
@@ -119,9 +176,9 @@ export default function ProfielBewerkScreen() {
           </View>
 
           <Pressable
-            style={[styles.opslaanKnop, bezig && styles.knopDisabled]}
+            style={[styles.opslaanKnop, (bezig || !geboorteCheck.ok) && styles.knopDisabled]}
             onPress={opslaan}
-            disabled={bezig}
+            disabled={bezig || !geboorteCheck.ok}
           >
             <Text style={styles.opslaanTekst}>{bezig ? 'Opslaan…' : 'Opslaan'}</Text>
           </Pressable>
@@ -163,6 +220,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
+  veldSub: { fontSize: 14, fontWeight: '600', color: COLORS.primary, marginBottom: 4 },
+  veldFout: { fontSize: 13, color: '#C53030', marginTop: 4 },
   input:    { fontSize: 16, color: COLORS.text, padding: 0 },
   textarea: { height: 100 },
 

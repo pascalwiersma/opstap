@@ -23,6 +23,7 @@ export default function RootLayout() {
   return (
     <Stack initialRouteName={session ? '(tabs)' : '(auth)'}>
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="profiel-bewerken" options={{ headerShown: false }} />
       <Stack.Screen name="instellingen" options={{ headerShown: false }} />

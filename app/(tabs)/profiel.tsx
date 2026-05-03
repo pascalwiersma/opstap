@@ -41,6 +41,7 @@ export default function ProfielScreen() {
   const [sessie, setSessie] = useState<Session | null>(null);
   const [profiel, setProfiel] = useState<ProfielVelden | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accountVerwijderenBezig, setAccountVerwijderenBezig] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -78,6 +79,54 @@ export default function ProfielScreen() {
         },
       },
     ]);
+  }
+
+  function accountVerwijderen() {
+    Alert.alert(
+      'Account verwijderen',
+      'Je profiel, check-ins en overige gegevens worden permanent gewist. Dit kun je niet terugdraaien.',
+      [
+        { text: 'Annuleren', style: 'cancel' },
+        {
+          text: 'Doorgaan',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Laatste bevestiging',
+              'We verwijderen je account direct. Wil je doorgaan?',
+              [
+                { text: 'Annuleren', style: 'cancel' },
+                {
+                  text: 'Definitief verwijderen',
+                  style: 'destructive',
+                  onPress: () => {
+                    void voerAccountVerwijderenUit();
+                  },
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
+  }
+
+  async function voerAccountVerwijderenUit() {
+    setAccountVerwijderenBezig(true);
+    const { error } = await supabase.rpc('delete_own_account');
+    setAccountVerwijderenBezig(false);
+
+    if (error) {
+      Alert.alert(
+        'Verwijderen mislukt',
+        error.message ||
+          'Probeer het later opnieuw. Heb je bestanden in de app-opslag? Verwijder die eerst in het dashboard.',
+      );
+      return;
+    }
+
+    await supabase.auth.signOut();
+    router.replace('/(auth)/register');
   }
 
   function binnenkort() {
@@ -171,6 +220,19 @@ export default function ProfielScreen() {
           <Pressable style={[styles.rijKaart, styles.logoutKaart]} onPress={uitloggen}>
             <Ionicons name="log-out-outline" size={22} color="#E53E3E" />
             <Text style={styles.logoutTekst}>Uitloggen</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.rijKaart, styles.verwijderKaart]}
+            onPress={accountVerwijderen}
+            disabled={accountVerwijderenBezig}
+          >
+            {accountVerwijderenBezig ? (
+              <ActivityIndicator color="#9B2C2C" />
+            ) : (
+              <Ionicons name="trash-outline" size={22} color="#9B2C2C" />
+            )}
+            <Text style={styles.verwijderTekst}>Account verwijderen</Text>
           </Pressable>
         </>
       )}
@@ -281,4 +343,14 @@ const styles = StyleSheet.create({
 
   logoutKaart: { justifyContent: 'flex-start', gap: 12, marginTop: 8 },
   logoutTekst: { fontSize: 16, fontWeight: '600', color: '#E53E3E' },
+
+  verwijderKaart: {
+    justifyContent: 'flex-start',
+    gap: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(155, 44, 44, 0.25)',
+    backgroundColor: '#FFFAFA',
+  },
+  verwijderTekst: { fontSize: 16, fontWeight: '600', color: '#9B2C2C' },
 });

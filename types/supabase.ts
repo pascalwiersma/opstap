@@ -361,27 +361,36 @@ export type Database = {
           age: number | null
           avatar_url: string | null
           bio: string | null
+          birth_date: string | null
           created_at: string | null
+          email: string | null
           id: string
           name: string
+          onboarding_completed_at: string | null
           trust_score: number | null
         }
         Insert: {
           age?: number | null
           avatar_url?: string | null
           bio?: string | null
+          birth_date?: string | null
           created_at?: string | null
+          email?: string | null
           id: string
           name: string
+          onboarding_completed_at?: string | null
           trust_score?: number | null
         }
         Update: {
           age?: number | null
           avatar_url?: string | null
           bio?: string | null
+          birth_date?: string | null
           created_at?: string | null
+          email?: string | null
           id?: string
           name?: string
+          onboarding_completed_at?: string | null
           trust_score?: number | null
         }
         Relationships: []
@@ -1458,6 +1467,7 @@ export type Database = {
         }
         Returns: string
       }
+      delete_own_account: { Args: Record<PropertyKey, never>; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
