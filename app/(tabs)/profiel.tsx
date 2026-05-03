@@ -1,35 +1,65 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../../services/supabase';
 import { COLORS } from '../../constants/colors';
 import { Tables } from '../../types/supabase';
 
-type Profiel = Pick<Tables<'profiles'>, 'name' | 'avatar_url' | 'age' | 'bio' | 'trust_score'>;
+type ProfielVelden = Pick<Tables<'profiles'>, 'name' | 'avatar_url'>;
+
+function koppelTekst(user: User | null): string {
+  const providers = user?.identities?.map((i) => i.provider) ?? [];
+  if (providers.includes('apple')) return 'Gekoppeld met Apple';
+  if (providers.includes('google')) return 'Gekoppeld met Google';
+  if (providers.includes('phone')) return 'Gekoppeld met telefoon';
+  return user?.phone ? 'Gekoppeld met telefoon' : 'Actief account';
+}
+
+function loginIdentiteit(user: User | null): string {
+  if (user?.email) return user.email;
+  if (user?.phone) return user.phone;
+  return '—';
+}
+
+/** Placeholder — later koppel aan echte notificatie-teller */
+const MOCK_MELDINGEN_TOTAAL = 22;
 
 export default function ProfielScreen() {
   const { top, bottom } = useSafeAreaInsets();
-  const [profiel, setProfiel] = useState<Profiel | null>(null);
-  const [telefoon, setTelefoon] = useState<string | null>(null);
+  const [sessie, setSessie] = useState<Session | null>(null);
+  const [profiel, setProfiel] = useState<ProfielVelden | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        setSessie(session);
         const user = session?.user;
-        if (!user) return;
-        setTelefoon(user.phone ?? null);
+        if (!user) {
+          setLoading(false);
+          return;
+        }
         const { data } = await supabase
           .from('profiles')
-          .select('name, avatar_url, age, bio, trust_score')
+          .select('name, avatar_url')
           .eq('id', user.id)
           .single();
-        if (data) setProfiel(data as Profiel);
+        if (data) setProfiel(data as ProfielVelden);
       } catch (e) {
-        console.error('profiel laden mislukt:', e);
+        console.error('account laden mislukt:', e);
       } finally {
         setLoading(false);
       }
@@ -50,151 +80,205 @@ export default function ProfielScreen() {
     ]);
   }
 
-  const initialen = profiel?.name
-    ? profiel.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
-    : '?';
+  function binnenkort() {
+    Alert.alert('Binnenkort', 'Deze functie wordt later toegevoegd.');
+  }
+
+  const user = sessie?.user ?? null;
+  const naam   = profiel?.name ?? '—';
+  const initialen =
+    naam !== '—'
+      ? naam
+          .split(' ')
+          .map((w) => w[0])
+          .join('')
+          .toUpperCase()
+          .slice(0, 2)
+      : '?';
 
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingTop: top, paddingBottom: bottom + 110 }}
+      style={styles.scroll}
+      contentContainerStyle={[styles.scrollInhoud, { paddingTop: top + 8, paddingBottom: bottom + 100 }]}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarTekst}>{initialen}</Text>
-        </View>
+      <Text style={styles.pagetitel}>Account</Text>
 
-        {loading ? (
-          <ActivityIndicator color={COLORS.primary} style={{ marginTop: 16 }} />
-        ) : (
-          <>
-            <Text style={styles.naam}>{profiel?.name ?? '—'}</Text>
-            <View style={styles.scorePill}>
-              <Ionicons name="star" size={12} color="#fff" />
-              <Text style={styles.scoreTekst}>{profiel?.trust_score?.toFixed(1) ?? '5.0'}</Text>
-            </View>
-          </>
-        )}
-      </View>
-
-      {!loading && (
-        <View style={styles.sectie}>
-          {/* Bio */}
-          {profiel?.bio ? (
-            <View style={styles.kaart}>
-              <Text style={styles.kaartLabel}>Over mij</Text>
-              <Text style={styles.kaartTekst}>{profiel.bio}</Text>
-            </View>
-          ) : null}
-
-          {/* Info rij */}
-          <View style={styles.kaart}>
-            <View style={styles.infoRij}>
-              <View style={styles.infoItem}>
-                <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
-                <Text style={styles.infoLabel}>Leeftijd</Text>
-                <Text style={styles.infoWaarde}>{profiel?.age ?? '—'}</Text>
+      {loading ? (
+        <ActivityIndicator color={COLORS.primary} style={{ marginTop: 32 }} />
+      ) : (
+        <>
+          <Pressable style={styles.hoofdKaart} onPress={() => router.push('/profiel-bewerken')}>
+            {profiel?.avatar_url ? (
+              <Image source={{ uri: profiel.avatar_url }} style={styles.avatarFoto} />
+            ) : (
+              <View style={styles.avatarPlaat}>
+                <Text style={styles.avatarLetters}>{initialen}</Text>
               </View>
-              <View style={styles.infoScherm} />
-              <View style={styles.infoItem}>
-                <Ionicons name="call-outline" size={20} color={COLORS.primary} />
-                <Text style={styles.infoLabel}>Telefoon</Text>
-                <Text style={styles.infoWaarde} numberOfLines={1}>{telefoon ?? '—'}</Text>
-              </View>
+            )}
+            <View style={styles.hoofdKaartTekst}>
+              <Text style={styles.naamVet}>{naam}</Text>
+              <Text style={styles.subRegel}>{loginIdentiteit(user)}</Text>
+              <Text style={styles.metaRegel}>{koppelTekst(user)}</Text>
             </View>
-          </View>
-
-          {/* Acties */}
-          <View style={styles.kaart}>
-            <Pressable style={styles.actieRij} onPress={() => router.push('/profiel-bewerken')}>
-              <Ionicons name="pencil-outline" size={20} color={COLORS.text} />
-              <Text style={styles.actieTekst}>Profiel bewerken</Text>
-              <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} style={{ marginLeft: 'auto' }} />
-            </Pressable>
-            <View style={styles.actieScheiding} />
-            <Pressable style={styles.actieRij}>
-              <Ionicons name="heart-outline" size={20} color={COLORS.text} />
-              <Text style={styles.actieTekst}>Favoriete venues</Text>
-              <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} style={{ marginLeft: 'auto' }} />
-            </Pressable>
-          </View>
-
-          <Pressable style={[styles.kaart, styles.uitloggenRij]} onPress={uitloggen}>
-            <Ionicons name="log-out-outline" size={20} color="#E53E3E" />
-            <Text style={styles.uitloggenTekst}>Uitloggen</Text>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
           </Pressable>
-        </View>
+
+          <View style={styles.actiePaar}>
+            <Pressable style={styles.actieKaart} onPress={() => router.push('/profiel-bewerken')}>
+              <Ionicons name="pencil-outline" size={26} color={COLORS.text} />
+              <Text style={styles.actieKaartTekst}>Profiel bewerken</Text>
+            </Pressable>
+            <Pressable style={styles.actieKaart} onPress={() => router.push('/instellingen')}>
+              <Ionicons name="settings-outline" size={26} color={COLORS.text} />
+              <Text style={styles.actieKaartTekst}>Instellingen</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.sectieKop}>Meldingen & Connecties</Text>
+          <View style={styles.kaartenStapel}>
+            <Pressable style={styles.rijKaart} onPress={binnenkort}>
+              <Text style={styles.rijLabel}>Meldingen</Text>
+              <View style={styles.rechtsGroep}>
+                {MOCK_MELDINGEN_TOTAAL > 0 ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeTekst}>
+                      {MOCK_MELDINGEN_TOTAAL > 99 ? '99+' : String(MOCK_MELDINGEN_TOTAAL)}
+                    </Text>
+                  </View>
+                ) : null}
+                <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+              </View>
+            </Pressable>
+            <Pressable style={styles.rijKaart} onPress={binnenkort}>
+              <Text style={styles.rijLabel}>Jouw connecties</Text>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+            </Pressable>
+          </View>
+
+          <Text style={styles.sectieKop}>Over OpStap</Text>
+          <View style={styles.kaartenStapel}>
+            <Pressable style={styles.rijKaart} onPress={binnenkort}>
+              <Text style={styles.rijLabel}>Helpcentrum</Text>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+            </Pressable>
+            <Pressable style={styles.rijKaart} onPress={binnenkort}>
+              <Text style={styles.rijLabel}>Voorwaarden & privacy</Text>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+            </Pressable>
+          </View>
+
+          <Pressable style={[styles.rijKaart, styles.logoutKaart]} onPress={uitloggen}>
+            <Ionicons name="log-out-outline" size={22} color="#E53E3E" />
+            <Text style={styles.logoutTekst}>Uitloggen</Text>
+          </Pressable>
+        </>
       )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.surface },
+  scroll:     { flex: 1, backgroundColor: COLORS.surface },
+  scrollInhoud: { paddingHorizontal: 16, gap: 0 },
 
-  header: {
-    backgroundColor: COLORS.background,
-    alignItems: 'center',
-    paddingTop: 28,
-    paddingBottom: 28,
+  pagetitel: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: COLORS.text,
+    letterSpacing: -0.6,
     marginBottom: 20,
   },
-  avatar: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+
+  hoofdKaart: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  avatarFoto: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.surface,
+  },
+  avatarPlaat: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6,
   },
-  avatarTekst: { fontSize: 34, fontWeight: '700', color: '#fff' },
-  naam:        { fontSize: 24, fontWeight: '700', color: COLORS.text, marginBottom: 10 },
-  scorePill: {
+  avatarLetters: { fontSize: 20, fontWeight: '700', color: '#fff' },
+  hoofdKaartTekst: { flex: 1, marginLeft: 14, justifyContent: 'center' },
+  naamVet:     { fontSize: 17, fontWeight: '700', color: COLORS.text },
+  subRegel:    { fontSize: 14, color: COLORS.text, marginTop: 2 },
+  metaRegel:   { fontSize: 12, color: COLORS.textLight, marginTop: 4 },
+
+  actiePaar:      { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  actieKaart: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    minHeight: 96,
+    backgroundColor: COLORS.background,
+    borderRadius: 18,
+    paddingVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  actieKaartTekst: { fontSize: 13, fontWeight: '600', color: COLORS.text, textAlign: 'center' },
+
+  sectieKop: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textLight,
+    marginBottom: 10,
+    marginTop: 4,
+    letterSpacing: 0.2,
+  },
+
+  kaartenStapel: { gap: 8, marginBottom: 20 },
+  rijKaart: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#F59E0B',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  scoreTekst: { fontSize: 13, fontWeight: '700', color: '#fff' },
-
-  sectie: { paddingHorizontal: 16, gap: 12 },
-
-  kaart: {
+    justifyContent: 'space-between',
     backgroundColor: COLORS.background,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  kaartLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.textLight,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 8,
+  rijLabel: { fontSize: 16, fontWeight: '500', color: COLORS.text },
+  rechtsGroep: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+
+  badge: {
+    backgroundColor: COLORS.primary,
+    minWidth: 26,
+    height: 26,
+    borderRadius: 13,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  kaartTekst: { fontSize: 15, color: COLORS.text, lineHeight: 22 },
+  badgeTekst: { fontSize: 13, fontWeight: '700', color: '#fff' },
 
-  infoRij:    { flexDirection: 'row', alignItems: 'center' },
-  infoItem:   { flex: 1, alignItems: 'center', gap: 5 },
-  infoLabel:  { fontSize: 11, color: COLORS.textLight, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
-  infoWaarde: { fontSize: 15, fontWeight: '700', color: COLORS.text },
-  infoScherm: { width: 1, height: 44, backgroundColor: COLORS.surface },
-
-  actieRij: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  actieTekst: { fontSize: 15, fontWeight: '500', color: COLORS.text },
-  actieScheiding: { height: 1, backgroundColor: COLORS.surface, marginVertical: 12 },
-
-  uitloggenRij: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  uitloggenTekst: { fontSize: 15, fontWeight: '600', color: '#E53E3E' },
+  logoutKaart: { justifyContent: 'flex-start', gap: 12, marginTop: 8 },
+  logoutTekst: { fontSize: 16, fontWeight: '600', color: '#E53E3E' },
 });
