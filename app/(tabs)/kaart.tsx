@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
 import Mapbox from '@rnmapbox/maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -97,6 +98,8 @@ export default function KaartScreen() {
   const venues         = useVenues();
   const slideAnim      = useRef(new Animated.Value(CARD_HEIGHT + 20)).current;
   const [actieveFilters, setActieveFilters] = useState<Set<VenueTyp>>(new Set(ALLE_TYPES));
+  /** Later: Supabase / realtime; nu 0 = geen badge */
+  const [meldingenOngelezen] = useState(0);
 
   function toggleFilter(type: VenueTyp) {
     setActieveFilters((prev) => {
@@ -283,9 +286,25 @@ export default function KaartScreen() {
         })}
       </View>
 
-      <View style={[styles.logo, { top: top + 12 }]}>
-        <Text style={styles.logoTekst}>OpStap</Text>
-      </View>
+      <Pressable
+        style={[styles.meldingenKnop, { top: top + 12 }]}
+        onPress={() => router.push('/meldingen')}
+        accessibilityRole="button"
+        accessibilityLabel={
+          meldingenOngelezen > 0
+            ? `Meldingen, ${meldingenOngelezen} ongelezen`
+            : 'Meldingen'
+        }
+      >
+        <Ionicons name="notifications-outline" size={24} color="#1A1A1A" />
+        {meldingenOngelezen > 0 ? (
+          <View style={styles.meldingBadge}>
+            <Text style={styles.meldingBadgeTekst}>
+              {meldingenOngelezen > 99 ? '99+' : String(meldingenOngelezen)}
+            </Text>
+          </View>
+        ) : null}
+      </Pressable>
 
       <Pressable style={[styles.locatieKnop, { bottom: bottom + 24 }]} onPress={centreerOpLocatie}>
         <Ionicons name="navigate" size={22} color="#1A73E8" />
@@ -428,18 +447,34 @@ const styles = StyleSheet.create({
   filterTekst:       { fontSize: 13, fontWeight: '600', color: '#666' },
   filterTekstActief: { color: '#FFFFFF' },
 
-  logo: {
+  meldingenKnop: {
     position: 'absolute',
     right: 16,
-    backgroundColor: '#FF6B35',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  logoTekst: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.5 },
+  meldingBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 5,
+    borderRadius: 10,
+    backgroundColor: '#FF6B35',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  meldingBadgeTekst: { fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
 });
