@@ -1,35 +1,58 @@
 import { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Redirect, Tabs } from 'expo-router';
+import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
+import { PlatformPressable } from '@react-navigation/elements';
 import { Session } from '@supabase/supabase-js';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
 
-function IncheckenKnop(props: any) {
+const ORANJE = '#FF6B35';
+
+/**
+ * Incheck gebruikt géén tabBarShowLabel: false → die optie komt in React Navigation uit de
+ * *focused* route en geldt dan voor ÁLLE tabs, waardoor labels verdwijnen op het Incheck-scherm.
+ * We renderen de default children niet; daardoor is er geen zichtbaar label onder deze knop.
+ */
+const INCHECKEN_ICOON_RUIMTE_BOVEN_LABEL = 24;
+
+function IncheckenOranjeRond({ children: _negeren, ...rest }: BottomTabBarButtonProps) {
+  const actief = rest['aria-selected'] === true;
   return (
-    <View style={[props.style, { alignItems: 'center', justifyContent: 'center' }]}>
-      <Pressable
-        onPress={() => props.onPress?.()}
+    <PlatformPressable
+      {...rest}
+      hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+      style={[
+        rest.style,
+        {
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          flex: 1,
+          paddingBottom: INCHECKEN_ICOON_RUIMTE_BOVEN_LABEL,
+        },
+      ]}
+    >
+      <View
+        pointerEvents="none"
         style={{
-          top: -20,
           width: 60,
           height: 60,
           borderRadius: 30,
-          backgroundColor: '#FF6B35',
+          backgroundColor: ORANJE,
           alignItems: 'center',
           justifyContent: 'center',
-          shadowColor: '#FF6B35',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.45,
-          shadowRadius: 10,
-          elevation: 8,
           borderWidth: 3,
-          borderColor: '#fff',
+          borderColor: '#FFFFFF',
+          shadowColor: ORANJE,
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: actief ? 0.5 : 0.38,
+          shadowRadius: actief ? 10 : 7,
+          elevation: actief ? 10 : 7,
         }}
       >
-        <Ionicons name="flash" size={26} color="#fff" />
-      </Pressable>
-    </View>
+        <Ionicons name="flash" size={30} color="#FFFFFF" />
+      </View>
+    </PlatformPressable>
   );
 }
 
@@ -51,24 +74,24 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarShowLabel: true,
         tabBarActiveTintColor: '#FF6B35',
-        tabBarInactiveTintColor: '#999',
+        tabBarInactiveTintColor: '#8E8E93',
         tabBarStyle: {
-          position: 'absolute',
-          borderTopWidth: 0,
-          elevation: 0,
-          backgroundColor: 'rgba(255,255,255,0.95)',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -1 },
-          shadowOpacity: 0.08,
-          shadowRadius: 8,
           overflow: 'visible',
-          height: 62,
-          marginBottom: 16,
-          marginHorizontal: 16,
-          borderRadius: 20,
+          minHeight: 92,
+          paddingTop: 8,
+          paddingBottom: 2,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: 'rgba(0,0,0,0.1)',
+          elevation: 12,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 4,
         },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >
       <Tabs.Screen
@@ -88,8 +111,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="inchecken"
         options={{
-          title: '',
-          tabBarButton: IncheckenKnop,
+          title: 'Inchecken',
+          tabBarAccessibilityLabel: 'Inchecken',
+          tabBarIcon: () => null,
+          tabBarButton: (props) => <IncheckenOranjeRond {...props} />,
         }}
       />
       <Tabs.Screen

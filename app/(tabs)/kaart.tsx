@@ -184,7 +184,7 @@ export default function KaartScreen() {
     <View style={styles.container}>
       {styleJSON && (
         <Mapbox.MapView
-          style={StyleSheet.absoluteFillObject}
+          style={styles.mapFlex}
           styleJSON={styleJSON}
           logoEnabled={false}
           attributionEnabled={false}
@@ -287,12 +287,12 @@ export default function KaartScreen() {
         <Text style={styles.logoTekst}>OpStap</Text>
       </View>
 
-      <Pressable style={[styles.locatieKnop, { bottom: bottom + 90 }]} onPress={centreerOpLocatie}>
+      <Pressable style={[styles.locatieKnop, { bottom: bottom + 24 }]} onPress={centreerOpLocatie}>
         <Ionicons name="navigate" size={22} color="#1A73E8" />
       </Pressable>
 
       {selectedVenue && (
-        <Animated.View style={[styles.venueCard, { bottom: bottom + 80, transform: [{ translateY: slideAnim }] }]}>
+        <Animated.View style={[styles.venueCard, { bottom: bottom + 16, transform: [{ translateY: slideAnim }] }]}>
           <View style={[styles.cardFoto, { backgroundColor: kleur }]}>
             <Ionicons name={icon} size={34} color="#fff" />
             <View style={styles.hartKnop}>
@@ -326,6 +326,8 @@ declare namespace GeoJSON {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
+  mapFlex: { flex: 1 },
 
   teardropKop: {
     width: 44,
