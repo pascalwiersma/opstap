@@ -81,6 +81,44 @@ export type Database = {
           },
         ]
       }
+      check_ins: {
+        Row: {
+          checked_in_at: string | null
+          checked_out_at: string | null
+          created_at: string | null
+          date: string
+          id: string
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          checked_in_at?: string | null
+          checked_out_at?: string | null
+          created_at?: string | null
+          date: string
+          id?: string
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          checked_in_at?: string | null
+          checked_out_at?: string | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_ins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_registrations: {
         Row: {
           created_at: string | null
@@ -248,6 +286,75 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      match_members: {
+        Row: {
+          created_at: string | null
+          id: string
+          match_id: string
+          responded_at: string | null
+          response: string | null
+          user_id: string
+          verified_attendance: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          match_id: string
+          responded_at?: string | null
+          response?: string | null
+          user_id: string
+          verified_attendance?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          match_id?: string
+          responded_at?: string | null
+          response?: string | null
+          user_id?: string
+          verified_attendance?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_members_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      matches: {
+        Row: {
+          created_at: string | null
+          date: string
+          group_chat_id: string | null
+          id: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          group_chat_id?: string | null
+          id?: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          group_chat_id?: string | null
+          id?: string
+          status?: string | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
