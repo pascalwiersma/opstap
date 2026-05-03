@@ -24,7 +24,7 @@ export default function RootLayout() {
     <Stack initialRouteName={session ? '(tabs)' : '(auth)'}>
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="profiel/bewerken" options={{ headerShown: false }} />
+      <Stack.Screen name="profiel-bewerken" options={{ headerShown: false }} />
       <Stack.Screen name="event/aanmaken" options={{ title: 'Event aanmaken' }} />
       <Stack.Screen name="event/[id]" options={{ title: 'Event' }} />
       <Stack.Screen name="venue/[id]" options={{ title: 'Venue' }} />
