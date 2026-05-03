@@ -102,7 +102,7 @@ export default function ProfielScreen() {
 
           {/* Acties */}
           <View style={styles.kaart}>
-            <Pressable style={styles.actieRij}>
+            <Pressable style={styles.actieRij} onPress={() => router.push('/profiel/bewerken')}>
               <Ionicons name="pencil-outline" size={20} color={COLORS.text} />
               <Text style={styles.actieTekst}>Profiel bewerken</Text>
               <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} style={{ marginLeft: 'auto' }} />
