@@ -17,16 +17,22 @@ export default function ProfielScreen() {
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      setTelefoon(user.phone ?? null);
-      const { data } = await supabase
-        .from('profiles')
-        .select('name, avatar_url, age, bio, trust_score')
-        .eq('id', user.id)
-        .single();
-      if (data) setProfiel(data as Profiel);
-      setLoading(false);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        if (!user) return;
+        setTelefoon(user.phone ?? null);
+        const { data } = await supabase
+          .from('profiles')
+          .select('name, avatar_url, age, bio, trust_score')
+          .eq('id', user.id)
+          .single();
+        if (data) setProfiel(data as Profiel);
+      } catch (e) {
+        console.error('profiel laden mislukt:', e);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
