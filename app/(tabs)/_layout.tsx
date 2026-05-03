@@ -5,11 +5,11 @@ import { Session } from '@supabase/supabase-js';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../services/supabase';
 
-function IncheckenKnop({ onPress }: { onPress?: () => void }) {
+function IncheckenKnop(props: any) {
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={[props.style, { alignItems: 'center', justifyContent: 'center' }]}>
       <Pressable
-        onPress={onPress}
+        onPress={() => props.onPress?.()}
         style={{
           top: -20,
           width: 60,
@@ -86,8 +86,7 @@ export default function TabsLayout() {
         name="inchecken"
         options={{
           title: '',
-          // eslint-disable-next-line react/display-name
-          tabBarButton: (props: any) => <IncheckenKnop onPress={props.onPress} />,
+          tabBarButton: IncheckenKnop,
         }}
       />
       <Tabs.Screen
