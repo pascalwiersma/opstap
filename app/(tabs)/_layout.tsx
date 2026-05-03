@@ -64,6 +64,9 @@ export default function TabsLayout() {
           shadowRadius: 8,
           overflow: 'visible',
           height: 62,
+          marginBottom: 16,
+          marginHorizontal: 16,
+          borderRadius: 20,
         },
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
       }}
