@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { kalenderdagAmsterdam } from '../_shared/nl-date.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -59,7 +60,7 @@ async function maakGroepschat(
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 Deno.serve(async () => {
-  const today = new Date().toISOString().split('T')[0]
+  const today = kalenderdagAmsterdam()
 
   // Haal alle 'proposed' matches van vandaag op
   const { data: matches, error: matchErr } = await supabase
@@ -102,7 +103,7 @@ Deno.serve(async () => {
         .in('id', pending.map(m => m.id))
     }
 
-    if (accepted.length >= 3) {
+    if (accepted.length >= 2) {
       // Genoeg aanwezigen: match bevestigen en groepschat aanmaken
       const acceptedIds = accepted.map(m => m.user_id)
       const groupChatId = await maakGroepschat(match.id, today, acceptedIds)

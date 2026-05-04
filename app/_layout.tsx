@@ -1,12 +1,12 @@
+import 'react-native-reanimated';
 import { useEffect, useRef, useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { Session } from '@supabase/supabase-js';
-import * as Notifications from 'expo-notifications';
 import { supabase } from '../services/supabase';
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
-  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  const responseListener = useRef<{ remove: () => void } | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -17,12 +17,15 @@ export default function RootLayout() {
       setSession(session);
     });
 
-    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as Record<string, unknown>;
-      if (data?.type === 'match_proposed' && typeof data?.matchId === 'string') {
-        router.push(`/match/${data.matchId}`);
-      }
-    });
+    // Push notificatie listener — werkt alleen op echte devices met push capability
+    import('expo-notifications').then((Notifications) => {
+      responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data as Record<string, unknown>;
+        if (data?.type === 'match_proposed' && typeof data?.matchId === 'string') {
+          router.push(`/match/${data.matchId}`);
+        }
+      });
+    }).catch(() => {});
 
     return () => {
       subscription.unsubscribe();

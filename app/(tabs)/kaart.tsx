@@ -1,10 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
+import Mapbox from '@rnmapbox/maps';
+import * as Location from 'expo-location';
+import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
-import Mapbox from '@rnmapbox/maps';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Location from 'expo-location';
 import { useVenues, VenuePin } from '../../hooks/useVenues';
 
 Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '');
@@ -13,39 +13,39 @@ const GRONINGEN: [number, number] = [6.5665, 53.2194];
 const TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 
 const VENUE_KLEUREN: Record<string, string> = {
-  cafe:  '#6D4C41',
-  bar:   '#FF6B35',
-  club:  '#9B59B6',
+  cafe: '#6D4C41',
+  bar: '#FF6B35',
+  club: '#9B59B6',
 };
 
 const VENUE_LABELS: Record<string, string> = {
   cafe: 'Café',
-  bar:  'Bar',
+  bar: 'Bar',
   club: 'Club',
 };
 
 const VENUE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   cafe: 'cafe-outline',
-  bar:  'wine-outline',
+  bar: 'wine-outline',
   club: 'musical-notes-outline',
 };
 
 const KLEUREN = {
-  achtergrond:   '#E8F5E9',
-  water:         '#B2EBF2',
-  hoofdweg:      '#B0BEC5',
-  hoofdwegCase:  '#90A4AE',
-  straatje:      '#CFD8DC',
-  straatjeCase:  '#B0BEC5',
-  gebouw:        '#FFFFFF',
+  achtergrond: '#E8F5E9',
+  water: '#B2EBF2',
+  hoofdweg: '#B0BEC5',
+  hoofdwegCase: '#90A4AE',
+  straatje: '#CFD8DC',
+  straatjeCase: '#B0BEC5',
+  gebouw: '#FFFFFF',
   gebouwOutline: '#E0E8E4',
-  park:          '#C8E6C9',
+  park: '#C8E6C9',
 } as const;
 
 type MapLayer = { id: string; type: string; paint?: Record<string, unknown> };
 
-const HOOFDWEG_TOKENS  = ['motorway', 'trunk', 'primary', 'secondary', 'major'];
-const WATER_IDS        = ['water', 'water-shadow', 'waterway'];
+const HOOFDWEG_TOKENS = ['motorway', 'trunk', 'primary', 'secondary', 'major'];
+const WATER_IDS = ['water', 'water-shadow', 'waterway'];
 const PLAATSNAAM_TOKENS = ['settlement', 'country', 'state', 'continent'];
 
 function processLayer(layer: MapLayer): MapLayer {
@@ -63,7 +63,7 @@ function processLayer(layer: MapLayer): MapLayer {
     if (id.includes('waterway') || id.startsWith('water'))
       return { ...layer, paint: { ...layer.paint, 'line-color': KLEUREN.water } };
     if (id.startsWith('road-') || id.includes('-road')) {
-      const isCase     = id.endsWith('-case');
+      const isCase = id.endsWith('-case');
       const isHoofdweg = HOOFDWEG_TOKENS.some((t) => id.includes(t));
       const kleur = isHoofdweg
         ? (isCase ? KLEUREN.hoofdwegCase : KLEUREN.hoofdweg)
@@ -84,19 +84,19 @@ async function fetchStyle(): Promise<string> {
 }
 
 const CARD_HEIGHT = 120;
-const ALLE_TYPES  = ['cafe', 'bar', 'club'] as const;
-type VenueTyp     = typeof ALLE_TYPES[number];
+const ALLE_TYPES = ['cafe', 'bar', 'club'] as const;
+type VenueTyp = typeof ALLE_TYPES[number];
 
 export default function KaartScreen() {
-  const [styleJSON, setStyleJSON]       = useState<string | null>(null);
-  const [locatie, setLocatie]           = useState<[number, number] | null>(null);
+  const [styleJSON, setStyleJSON] = useState<string | null>(null);
+  const [locatie, setLocatie] = useState<[number, number] | null>(null);
   const [selectedVenue, setSelectedVenue] = useState<VenuePin | null>(null);
-  const cameraRef      = useRef<React.ElementRef<typeof Mapbox.Camera>>(null);
-  const sourceRef      = useRef<React.ElementRef<typeof Mapbox.ShapeSource>>(null);
+  const cameraRef = useRef<React.ElementRef<typeof Mapbox.Camera>>(null);
+  const sourceRef = useRef<React.ElementRef<typeof Mapbox.ShapeSource>>(null);
   const { bottom, top } = useSafeAreaInsets();
   const gecentreerdRef = useRef(false);
-  const venues         = useVenues();
-  const slideAnim      = useRef(new Animated.Value(CARD_HEIGHT + 20)).current;
+  const venues = useVenues();
+  const slideAnim = useRef(new Animated.Value(CARD_HEIGHT + 20)).current;
   const [actieveFilters, setActieveFilters] = useState<Set<VenueTyp>>(new Set(ALLE_TYPES));
   /** Later: Supabase / realtime; nu 0 = geen badge */
   const [meldingenOngelezen] = useState(0);
@@ -180,7 +180,7 @@ export default function KaartScreen() {
   }
 
   const kleur = VENUE_KLEUREN[selectedVenue?.type ?? ''] ?? '#1A73E8';
-  const icon  = VENUE_ICONS[selectedVenue?.type ?? ''] ?? 'location-outline';
+  const icon = VENUE_ICONS[selectedVenue?.type ?? ''] ?? 'location-outline';
   const label = VENUE_LABELS[selectedVenue?.type ?? ''] ?? '';
 
   return (
@@ -241,9 +241,9 @@ export default function KaartScreen() {
               style={{
                 circleColor: [
                   'match', ['get', 'type'],
-                  'cafe',  VENUE_KLEUREN.cafe,
-                  'bar',   VENUE_KLEUREN.bar,
-                  'club',  VENUE_KLEUREN.club,
+                  'cafe', VENUE_KLEUREN.cafe,
+                  'bar', VENUE_KLEUREN.bar,
+                  'club', VENUE_KLEUREN.club,
                   '#1A73E8',
                 ] as unknown as string,
                 circleRadius: 8,
@@ -306,7 +306,7 @@ export default function KaartScreen() {
         ) : null}
       </Pressable>
 
-      <Pressable style={[styles.locatieKnop, { bottom: bottom + 24 }]} onPress={centreerOpLocatie}>
+      <Pressable style={[styles.locatieKnop, { bottom: bottom }]} onPress={centreerOpLocatie}>
         <Ionicons name="navigate" size={22} color="#1A73E8" />
       </Pressable>
 
@@ -417,8 +417,8 @@ const styles = StyleSheet.create({
   },
 
   badgeTekst: { color: '#fff', fontSize: 11, fontWeight: '600' },
-  cardNaam:   { fontSize: 17, fontWeight: '700', color: '#1A1A1A' },
-  cardAdres:  { fontSize: 13, color: '#888' },
+  cardNaam: { fontSize: 17, fontWeight: '700', color: '#1A1A1A' },
+  cardAdres: { fontSize: 13, color: '#888' },
 
   sluitKnop: {
     padding: 12,
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 
-  filterTekst:       { fontSize: 13, fontWeight: '600', color: '#666' },
+  filterTekst: { fontSize: 13, fontWeight: '600', color: '#666' },
   filterTekstActief: { color: '#FFFFFF' },
 
   meldingenKnop: {

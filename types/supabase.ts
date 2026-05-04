@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       attendance: {
@@ -85,6 +60,7 @@ export type Database = {
         Row: {
           checked_in_at: string | null
           checked_out_at: string | null
+          city: string | null
           created_at: string | null
           date: string
           id: string
@@ -94,6 +70,7 @@ export type Database = {
         Insert: {
           checked_in_at?: string | null
           checked_out_at?: string | null
+          city?: string | null
           created_at?: string | null
           date: string
           id?: string
@@ -103,6 +80,7 @@ export type Database = {
         Update: {
           checked_in_at?: string | null
           checked_out_at?: string | null
+          city?: string | null
           created_at?: string | null
           date?: string
           id?: string
@@ -113,6 +91,45 @@ export type Database = {
           {
             foreignKeyName: "check_ins_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      direct_messages: {
+        Row: {
+          created_at: string | null
+          id: string
+          stream_channel_id: string
+          user1_id: string
+          user2_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          stream_channel_id: string
+          user1_id: string
+          user2_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          stream_channel_id?: string
+          user1_id?: string
+          user2_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "direct_messages_user1_id_fkey"
+            columns: ["user1_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_messages_user2_id_fkey"
+            columns: ["user2_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -209,6 +226,75 @@ export type Database = {
           },
         ]
       }
+      match_members: {
+        Row: {
+          created_at: string | null
+          id: string
+          match_id: string
+          responded_at: string | null
+          response: string | null
+          user_id: string
+          verified_attendance: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          match_id: string
+          responded_at?: string | null
+          response?: string | null
+          user_id: string
+          verified_attendance?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          match_id?: string
+          responded_at?: string | null
+          response?: string | null
+          user_id?: string
+          verified_attendance?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_members_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      matches: {
+        Row: {
+          created_at: string | null
+          date: string
+          group_chat_id: string | null
+          id: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          group_chat_id?: string | null
+          id?: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          group_chat_id?: string | null
+          id?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
       night_photos: {
         Row: {
           created_at: string | null
@@ -287,74 +373,37 @@ export type Database = {
           },
         ]
       }
-      match_members: {
+      profile_photos: {
         Row: {
-          created_at: string | null
+          created_at: string
           id: string
-          match_id: string
-          responded_at: string | null
-          response: string | null
+          photo_url: string
+          position: number
           user_id: string
-          verified_attendance: boolean | null
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           id?: string
-          match_id: string
-          responded_at?: string | null
-          response?: string | null
+          photo_url: string
+          position?: number
           user_id: string
-          verified_attendance?: boolean | null
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           id?: string
-          match_id?: string
-          responded_at?: string | null
-          response?: string | null
+          photo_url?: string
+          position?: number
           user_id?: string
-          verified_attendance?: boolean | null
         }
         Relationships: [
           {
-            foreignKeyName: "match_members_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: false
-            referencedRelation: "matches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "match_members_user_id_fkey"
+            foreignKeyName: "profile_photos_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
-      }
-      matches: {
-        Row: {
-          created_at: string | null
-          date: string
-          group_chat_id: string | null
-          id: string
-          status: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          date: string
-          group_chat_id?: string | null
-          id?: string
-          status?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          date?: string
-          group_chat_id?: string | null
-          id?: string
-          status?: string | null
-        }
-        Relationships: []
       }
       profiles: {
         Row: {
@@ -367,6 +416,8 @@ export type Database = {
           id: string
           name: string
           onboarding_completed_at: string | null
+          preferred_group_size: number | null
+          push_token: string | null
           trust_score: number | null
         }
         Insert: {
@@ -379,6 +430,8 @@ export type Database = {
           id: string
           name: string
           onboarding_completed_at?: string | null
+          preferred_group_size?: number | null
+          push_token?: string | null
           trust_score?: number | null
         }
         Update: {
@@ -391,6 +444,8 @@ export type Database = {
           id?: string
           name?: string
           onboarding_completed_at?: string | null
+          preferred_group_size?: number | null
+          push_token?: string | null
           trust_score?: number | null
         }
         Relationships: []
@@ -702,6 +757,7 @@ export type Database = {
             }
             Returns: string
           }
+      delete_own_account: { Args: never; Returns: undefined }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {
@@ -1467,7 +1523,6 @@ export type Database = {
         }
         Returns: string
       }
-      delete_own_account: { Args: Record<PropertyKey, never>; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
@@ -1604,9 +1659,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

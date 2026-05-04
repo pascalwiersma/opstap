@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { supabase } from '../../services/supabase';
 import { COLORS } from '../../constants/colors';
+import { kalenderdagAmsterdam } from '../../utils/nlDate';
 
 const ORANJE = COLORS.primary;
 
@@ -27,7 +28,7 @@ export default function OntdekScreen() {
   const [match, setMatch] = useState<ActieveMatch | null>(null)
   const [checkIn, setCheckIn] = useState<CheckInInfo | null>(null)
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = kalenderdagAmsterdam()
 
   useEffect(() => {
     laadStatus()

@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -12,16 +21,94 @@ import {
 } from 'stream-chat-expo';
 import type { Channel as StreamChannel } from 'stream-chat';
 import { streamClient } from '../../services/stream';
+import { verbindStream, getOrCreateDm } from '../../services/dm';
 import { supabase } from '../../services/supabase';
 import { COLORS } from '../../constants/colors';
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface Lid {
+  userId: string
+  naam: string
+  avatarUrl: string | null
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function Avatar({ url, naam, size }: { url: string | null; naam: string; size: number }) {
+  if (url) {
+    return <Image source={{ uri: url }} style={{ width: size, height: size, borderRadius: size / 2 }} />
+  }
+  return (
+    <View style={[styles.avatarFallback, { width: size, height: size, borderRadius: size / 2 }]}>
+      <Text style={[styles.avatarInitiaal, { fontSize: size * 0.38 }]}>
+        {naam.charAt(0).toUpperCase()}
+      </Text>
+    </View>
+  )
+}
+
+// ── Ledenlijst modal ──────────────────────────────────────────────────────────
+
+function LedenModal({
+  zichtbaar,
+  leden,
+  mijnUserId,
+  onSluiten,
+  onDm,
+}: {
+  zichtbaar: boolean
+  leden: Lid[]
+  mijnUserId: string
+  onSluiten: () => void
+  onDm: (lid: Lid) => void
+}) {
+  return (
+    <Modal visible={zichtbaar} animationType="slide" presentationStyle="pageSheet" onRequestClose={onSluiten}>
+      <View style={styles.modalWrapper}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitel}>Deelnemers</Text>
+          <Pressable onPress={onSluiten} hitSlop={12}>
+            <Ionicons name="close" size={24} color={COLORS.text} />
+          </Pressable>
+        </View>
+        <ScrollView contentContainerStyle={styles.modalLijst}>
+          {leden.map(lid => (
+            <View key={lid.userId} style={styles.lidRij}>
+              <Avatar url={lid.avatarUrl} naam={lid.naam} size={44} />
+              <Text style={styles.lidNaam}>{lid.naam}</Text>
+              {lid.userId !== mijnUserId && (
+                <Pressable
+                  style={styles.dmKnop}
+                  onPress={() => onDm(lid)}
+                >
+                  <Ionicons name="chatbubble-outline" size={15} color={COLORS.secondary} />
+                  <Text style={styles.dmTekst}>Stuur bericht</Text>
+                </Pressable>
+              )}
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    </Modal>
+  )
+}
+
+// ── Hoofd scherm ──────────────────────────────────────────────────────────────
+
 export default function ChatroomScreen() {
   const { channelId } = useLocalSearchParams<{ channelId: string }>()
-  const { top, bottom } = useSafeAreaInsets()
+  const { top } = useSafeAreaInsets()
   const [kanaal, setKanaal] = useState<StreamChannel | null>(null)
   const [loading, setLoading] = useState(true)
   const [fout, setFout] = useState<string | null>(null)
+  const [ledenOpen, setLedenOpen] = useState(false)
+  const [leden, setLeden] = useState<Lid[]>([])
+  const [dmBezig, setDmBezig] = useState(false)
+  const mijnUserIdRef = useRef<string | null>(null)
   const verbonden = useRef(false)
+
+  const isGroepsChat = channelId?.startsWith('match-')
 
   useEffect(() => {
     verbindEnLaad()
@@ -37,6 +124,7 @@ export default function ChatroomScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Niet ingelogd')
+      mijnUserIdRef.current = user.id
 
       if (!streamClient.userID) {
         const { data: profiel } = await supabase
@@ -45,25 +133,53 @@ export default function ChatroomScreen() {
           .eq('id', user.id)
           .single()
 
-        await streamClient.connectUser(
-          {
-            id: user.id,
-            name: profiel?.name ?? 'Gebruiker',
-            image: profiel?.avatar_url ?? undefined,
-          },
-          streamClient.devToken(user.id),
-        )
+        await verbindStream(user.id, profiel?.name ?? 'Gebruiker', profiel?.avatar_url ?? null)
         verbonden.current = true
       }
 
       const channel = streamClient.channel('messaging', channelId)
       await channel.watch()
       setKanaal(channel)
+
+      // Ledendata ophalen voor groepschats
+      if (isGroepsChat) {
+        await laadLeden(channel)
+      }
     } catch (e) {
       console.error('Stream Chat fout:', e)
       setFout('Kon de chat niet laden. Probeer het opnieuw.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function laadLeden(channel: StreamChannel) {
+    const memberIds = Object.keys(channel.state.members ?? {})
+    if (memberIds.length === 0) return
+
+    const { data: profielen } = await supabase
+      .from('profiles')
+      .select('id, name, avatar_url')
+      .in('id', memberIds)
+
+    setLeden((profielen ?? []).map(p => ({
+      userId: p.id,
+      naam: p.name,
+      avatarUrl: p.avatar_url,
+    })))
+  }
+
+  async function startDm(lid: Lid) {
+    if (!mijnUserIdRef.current || dmBezig) return
+    setDmBezig(true)
+    setLedenOpen(false)
+    try {
+      const dmChannelId = await getOrCreateDm(mijnUserIdRef.current, lid.userId)
+      router.push(`/chatroom/${dmChannelId}`)
+    } catch (e) {
+      console.error('DM aanmaken mislukt:', e)
+    } finally {
+      setDmBezig(false)
     }
   }
 
@@ -80,14 +196,18 @@ export default function ChatroomScreen() {
       <View style={[styles.midden, { paddingTop: top }]}>
         <Ionicons name="alert-circle-outline" size={40} color={COLORS.textLight} />
         <Text style={styles.foutTekst}>{fout ?? 'Onbekende fout'}</Text>
-        <Pressable style={styles.terugKnop} onPress={() => router.back()}>
+        <Pressable style={styles.terugKnopPrimary} onPress={() => router.back()}>
           <Text style={styles.terugTekst}>Terug</Text>
         </Pressable>
       </View>
     )
   }
 
-  const groepsNaam = (kanaal.data as { name?: string } | undefined)?.name ?? 'Groepschat'
+  const groepsNaam = isGroepsChat
+    ? ((kanaal.data as { name?: string } | undefined)?.name ?? 'Groepschat')
+    : (leden.length > 0 ? leden[0].naam : 'Privégesprek')
+
+  const aantalLeden = Object.keys(kanaal.state.members ?? {}).length
 
   return (
     <OverlayProvider>
@@ -98,37 +218,72 @@ export default function ChatroomScreen() {
           </Pressable>
           <View style={styles.headerInfo}>
             <Text style={styles.headerTitel} numberOfLines={1}>{groepsNaam}</Text>
-            <Text style={styles.headerSub}>
-              {(kanaal.state.members ? Object.keys(kanaal.state.members).length : 0)} leden
-            </Text>
+            {isGroepsChat && (
+              <Text style={styles.headerSub}>{aantalLeden} deelnemers</Text>
+            )}
           </View>
+          {isGroepsChat && (
+            <Pressable style={styles.ledenKnop} onPress={() => setLedenOpen(true)} hitSlop={8}>
+              <Ionicons name="people-outline" size={22} color={COLORS.secondary} />
+            </Pressable>
+          )}
         </View>
 
         <Chat client={streamClient}>
-          <Channel
-            channel={kanaal}
-            keyboardVerticalOffset={top + 56}
-          >
+          <Channel channel={kanaal} keyboardVerticalOffset={top + 56}>
             <MessageList />
             <MessageComposer />
           </Channel>
         </Chat>
+
+        {isGroepsChat && (
+          <LedenModal
+            zichtbaar={ledenOpen}
+            leden={leden}
+            mijnUserId={mijnUserIdRef.current ?? ''}
+            onSluiten={() => setLedenOpen(false)}
+            onDm={startDm}
+          />
+        )}
+
+        {dmBezig && (
+          <View style={styles.dmOverlay}>
+            <ActivityIndicator color="#fff" />
+            <Text style={styles.dmOverlayTekst}>Chat openen…</Text>
+          </View>
+        )}
       </View>
     </OverlayProvider>
   )
 }
 
 const styles = StyleSheet.create({
-  wrapper:      { flex: 1, backgroundColor: '#fff' },
-  midden:       { flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', gap: 16, paddingHorizontal: 32 },
+  wrapper:            { flex: 1, backgroundColor: '#fff' },
+  midden:             { flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', gap: 16, paddingHorizontal: 32 },
 
-  header:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 10, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.08)' },
-  terugRond:    { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center' },
-  headerInfo:   { flex: 1 },
-  headerTitel:  { fontSize: 17, fontWeight: '700', color: COLORS.text },
-  headerSub:    { fontSize: 12, color: COLORS.textLight },
+  header:             { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 10, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.08)' },
+  terugRond:          { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center' },
+  headerInfo:         { flex: 1 },
+  headerTitel:        { fontSize: 17, fontWeight: '700', color: COLORS.text },
+  headerSub:          { fontSize: 12, color: COLORS.textLight },
+  ledenKnop:          { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center' },
 
-  foutTekst:    { fontSize: 15, color: COLORS.textLight, textAlign: 'center' },
-  terugKnop:    { backgroundColor: COLORS.primary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 },
-  terugTekst:   { fontSize: 15, fontWeight: '700', color: '#fff' },
+  foutTekst:          { fontSize: 15, color: COLORS.textLight, textAlign: 'center' },
+  terugKnopPrimary:   { backgroundColor: COLORS.primary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 },
+  terugTekst:         { fontSize: 15, fontWeight: '700', color: '#fff' },
+
+  avatarFallback:     { backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
+  avatarInitiaal:     { fontWeight: '700', color: '#fff' },
+
+  modalWrapper:       { flex: 1, backgroundColor: '#fff' },
+  modalHeader:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.08)' },
+  modalTitel:         { fontSize: 18, fontWeight: '700', color: COLORS.text },
+  modalLijst:         { padding: 16, gap: 8 },
+  lidRij:             { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  lidNaam:            { flex: 1, fontSize: 16, fontWeight: '500', color: COLORS.text },
+  dmKnop:             { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: COLORS.secondary },
+  dmTekst:            { fontSize: 13, fontWeight: '600', color: COLORS.secondary },
+
+  dmOverlay:          { position: 'absolute', bottom: 40, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(0,0,0,0.75)', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 24 },
+  dmOverlayTekst:     { fontSize: 14, color: '#fff', fontWeight: '600' },
 })

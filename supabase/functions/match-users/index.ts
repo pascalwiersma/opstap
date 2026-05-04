@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { kalenderdagAmsterdam } from '../_shared/nl-date.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -25,7 +26,7 @@ function jaccardScore(a: string[], b: string[]): number {
 }
 
 function maakGroepen(users: UserProfile[]): UserProfile[][] {
-  if (users.length < 3) return users.length > 0 ? [users] : []
+  if (users.length < 2) return users.length > 0 ? [users] : []
 
   const targetSize = Math.round(
     users.reduce((s, u) => s + u.preferredGroupSize, 0) / users.length,
@@ -104,7 +105,7 @@ async function stuurNotificaties(
 // ── Handler ──────────────────────────────────────────────────────────────────
 
 Deno.serve(async () => {
-  const today = new Date().toISOString().split('T')[0]
+  const today = kalenderdagAmsterdam()
 
   // 1. Haal alle actieve check-ins op voor vandaag
   const { data: checkIns, error: ciErr } = await supabase
@@ -135,8 +136,8 @@ Deno.serve(async () => {
   for (const [stad, stadCheckIns] of Object.entries(perStad)) {
     const userIds = stadCheckIns.map(ci => ci.user_id)
 
-    if (userIds.length < 3) {
-      resultaten[stad] = { overgeslagen: true, reden: 'Minder dan 3 gebruikers' }
+    if (userIds.length < 2) {
+      resultaten[stad] = { overgeslagen: true, reden: 'Minder dan 2 gebruikers' }
       continue
     }
 
