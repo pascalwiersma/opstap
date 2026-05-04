@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -12,345 +11,234 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../../services/supabase';
 import { COLORS } from '../../constants/colors';
-import { Tables } from '../../types/supabase';
 
-type ProfielVelden = Pick<Tables<'profiles'>, 'name' | 'avatar_url'>;
+const PAARS = COLORS.secondary;
 
-function koppelTekst(user: User | null): string {
-  const providers = user?.identities?.map((i) => i.provider) ?? [];
-  if (providers.includes('apple')) return 'Gekoppeld met Apple';
-  if (providers.includes('google')) return 'Gekoppeld met Google';
-  if (providers.includes('phone')) return 'Gekoppeld met telefoon';
-  return user?.phone ? 'Gekoppeld met telefoon' : 'Actief account';
+const INTERESSE_EMOJI: Record<string, string> = {
+  uitgaan: '🕺',
+  spelletjes: '🎲',
+  evenement: '🎪',
+  huisfeest: '🎵',
+  feestje: '🎉',
+  sport: '⚽',
+  muziek: '🎸',
+  film: '🎬',
+  kunst: '🎨',
+  reizen: '✈️',
+  koken: '🍳',
+  natuur: '🌿',
+  gaming: '🎮',
+  yoga: '🧘',
+  fitness: '💪',
+};
+
+function interesseEmoji(interesse: string): string {
+  return INTERESSE_EMOJI[interesse.toLowerCase()] ?? '✨';
 }
 
-function loginIdentiteit(user: User | null): string {
-  if (user?.email) return user.email;
-  if (user?.phone) return user.phone;
-  return '—';
-}
-
-/** Placeholder — later koppel aan echte notificatie-teller */
-const MOCK_MELDINGEN_TOTAAL = 22;
+const TABS = ['Info', 'Stats', 'Communities'] as const;
+type TabNaam = (typeof TABS)[number];
 
 export default function ProfielScreen() {
   const { top, bottom } = useSafeAreaInsets();
-  const [sessie, setSessie] = useState<Session | null>(null);
-  const [profiel, setProfiel] = useState<ProfielVelden | null>(null);
+  const [actieveTab, setActieveTab] = useState<TabNaam>('Info');
+  const [naam, setNaam] = useState('');
+  const [leeftijd, setLeeftijd] = useState<number | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [interesses, setInteresses] = useState<string[]>([]);
+  const [extraFotos, setExtraFotos] = useState<{ id: string; photo_url: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [accountVerwijderenBezig, setAccountVerwijderenBezig] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        setSessie(session);
         const user = session?.user;
-        if (!user) {
-          setLoading(false);
-          return;
+        if (!user) return;
+
+        const [profielRes, interessesRes, fotosRes] = await Promise.all([
+          supabase.from('profiles').select('name, avatar_url, age').eq('id', user.id).single(),
+          supabase.from('user_interests').select('interest').eq('user_id', user.id),
+          supabase.from('profile_photos').select('id, photo_url').eq('user_id', user.id).order('position'),
+        ]);
+
+        if (profielRes.data) {
+          setNaam(profielRes.data.name ?? '');
+          setLeeftijd(profielRes.data.age ?? null);
+          setAvatarUrl(profielRes.data.avatar_url ?? null);
         }
-        const { data } = await supabase
-          .from('profiles')
-          .select('name, avatar_url')
-          .eq('id', user.id)
-          .single();
-        if (data) setProfiel(data as ProfielVelden);
-      } catch (e) {
-        console.error('account laden mislukt:', e);
+        if (interessesRes.data) setInteresses(interessesRes.data.map((r) => r.interest));
+        if (fotosRes.data) setExtraFotos(fotosRes.data);
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  async function uitloggen() {
-    Alert.alert('Uitloggen', 'Weet je zeker dat je wil uitloggen?', [
-      { text: 'Annuleren', style: 'cancel' },
-      {
-        text: 'Uitloggen',
-        style: 'destructive',
-        onPress: async () => {
-          await supabase.auth.signOut();
-          router.replace('/(auth)/register');
-        },
-      },
-    ]);
-  }
-
-  function accountVerwijderen() {
-    Alert.alert(
-      'Account verwijderen',
-      'Je profiel, check-ins en overige gegevens worden permanent gewist. Dit kun je niet terugdraaien.',
-      [
-        { text: 'Annuleren', style: 'cancel' },
-        {
-          text: 'Doorgaan',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              'Laatste bevestiging',
-              'We verwijderen je account direct. Wil je doorgaan?',
-              [
-                { text: 'Annuleren', style: 'cancel' },
-                {
-                  text: 'Definitief verwijderen',
-                  style: 'destructive',
-                  onPress: () => {
-                    void voerAccountVerwijderenUit();
-                  },
-                },
-              ],
-            );
-          },
-        },
-      ],
-    );
-  }
-
-  async function voerAccountVerwijderenUit() {
-    setAccountVerwijderenBezig(true);
-    const { error } = await supabase.rpc('delete_own_account');
-    setAccountVerwijderenBezig(false);
-
-    if (error) {
-      Alert.alert(
-        'Verwijderen mislukt',
-        error.message ||
-          'Probeer het later opnieuw. Heb je bestanden in de app-opslag? Verwijder die eerst in het dashboard.',
-      );
-      return;
-    }
-
-    await supabase.auth.signOut();
-    router.replace('/(auth)/register');
-  }
-
-  function binnenkort() {
-    Alert.alert('Binnenkort', 'Deze functie wordt later toegevoegd.');
-  }
-
-  const user = sessie?.user ?? null;
-  const naam   = profiel?.name ?? '—';
-  const initialen =
-    naam !== '—'
-      ? naam
-          .split(' ')
-          .map((w) => w[0])
-          .join('')
-          .toUpperCase()
-          .slice(0, 2)
-      : '?';
+  const initialen = naam
+    ? naam.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
+    : '?';
 
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={[styles.scrollInhoud, { paddingTop: top + 8, paddingBottom: bottom + 100 }]}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={styles.pagetitel}>Account</Text>
+    <View style={[styles.wrapper, { paddingTop: top }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable style={styles.rondeKnop} onPress={() => router.push('/instellingen')} hitSlop={8}>
+          <Ionicons name="settings-outline" size={20} color={PAARS} />
+        </Pressable>
+      </View>
 
       {loading ? (
-        <ActivityIndicator color={COLORS.primary} style={{ marginTop: 32 }} />
+        <ActivityIndicator color={COLORS.primary} style={{ marginTop: 48 }} />
       ) : (
         <>
-          <Pressable style={styles.hoofdKaart} onPress={() => router.push('/profiel-bewerken')}>
-            {profiel?.avatar_url ? (
-              <Image source={{ uri: profiel.avatar_url }} style={styles.avatarFoto} />
+          {/* Profiel info */}
+          <View style={styles.profielRij}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatar} />
             ) : (
-              <View style={styles.avatarPlaat}>
+              <View style={[styles.avatar, styles.avatarPlaat]}>
                 <Text style={styles.avatarLetters}>{initialen}</Text>
               </View>
             )}
-            <View style={styles.hoofdKaartTekst}>
-              <Text style={styles.naamVet}>{naam}</Text>
-              <Text style={styles.subRegel}>{loginIdentiteit(user)}</Text>
-              <Text style={styles.metaRegel}>{koppelTekst(user)}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
-          </Pressable>
-
-          <View style={styles.actiePaar}>
-            <Pressable style={styles.actieKaart} onPress={() => router.push('/profiel-bewerken')}>
-              <Ionicons name="pencil-outline" size={26} color={COLORS.text} />
-              <Text style={styles.actieKaartTekst}>Profiel bewerken</Text>
-            </Pressable>
-            <Pressable style={styles.actieKaart} onPress={() => router.push('/instellingen')}>
-              <Ionicons name="settings-outline" size={26} color={COLORS.text} />
-              <Text style={styles.actieKaartTekst}>Instellingen</Text>
-            </Pressable>
-          </View>
-
-          <Text style={styles.sectieKop}>Meldingen & Connecties</Text>
-          <View style={styles.kaartenStapel}>
-            <Pressable style={styles.rijKaart} onPress={binnenkort}>
-              <Text style={styles.rijLabel}>Meldingen</Text>
-              <View style={styles.rechtsGroep}>
-                {MOCK_MELDINGEN_TOTAAL > 0 ? (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeTekst}>
-                      {MOCK_MELDINGEN_TOTAAL > 99 ? '99+' : String(MOCK_MELDINGEN_TOTAAL)}
-                    </Text>
-                  </View>
-                ) : null}
-                <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+            <View style={styles.profielTekst}>
+              <View style={styles.naamRij}>
+                <Text style={styles.naamVet}>{naam || '—'}</Text>
+                {leeftijd != null && (
+                  <Text style={styles.leeftijdTekst}> {leeftijd}</Text>
+                )}
               </View>
-            </Pressable>
-            <Pressable style={styles.rijKaart} onPress={binnenkort}>
-              <Text style={styles.rijLabel}>Jouw connecties</Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
-            </Pressable>
+              <Pressable onPress={() => router.push('/profiel-bewerken')}>
+                <Text style={styles.bewerkLink}>Profiel bewerken</Text>
+              </Pressable>
+            </View>
           </View>
 
-          <Text style={styles.sectieKop}>Over de app</Text>
-          <View style={styles.kaartenStapel}>
-            <Pressable style={styles.rijKaart} onPress={binnenkort}>
-              <Text style={styles.rijLabel}>Helpcentrum</Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
-            </Pressable>
-            <Pressable style={styles.rijKaart} onPress={binnenkort}>
-              <Text style={styles.rijLabel}>Voorwaarden & privacy</Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
-            </Pressable>
+          {/* Tabs */}
+          <View style={styles.tabBalk}>
+            {TABS.map((tab) => (
+              <Pressable key={tab} style={styles.tabItem} onPress={() => setActieveTab(tab)}>
+                <Text style={[styles.tabTekst, actieveTab === tab && styles.tabActief]}>
+                  {tab}
+                </Text>
+                {actieveTab === tab && <View style={styles.tabLijn} />}
+              </Pressable>
+            ))}
           </View>
 
-          <Pressable style={[styles.rijKaart, styles.logoutKaart]} onPress={uitloggen}>
-            <Ionicons name="log-out-outline" size={22} color="#E53E3E" />
-            <Text style={styles.logoutTekst}>Uitloggen</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.rijKaart, styles.verwijderKaart]}
-            onPress={accountVerwijderen}
-            disabled={accountVerwijderenBezig}
+          {/* Tab inhoud */}
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={[styles.scrollInhoud, { paddingBottom: bottom + 100 }]}
+            showsVerticalScrollIndicator={false}
           >
-            {accountVerwijderenBezig ? (
-              <ActivityIndicator color="#9B2C2C" />
-            ) : (
-              <Ionicons name="trash-outline" size={22} color="#9B2C2C" />
+            {actieveTab === 'Info' && (
+              <View style={styles.tabInhoud}>
+                <View style={styles.sectie}>
+                  <View style={styles.sectieHeader}>
+                    <Text style={styles.sectieLabel}>Interesses</Text>
+                    {interesses.length > 0 && (
+                      <Text style={styles.sectieAantal}>{interesses.length}</Text>
+                    )}
+                  </View>
+                  {interesses.length === 0 ? (
+                    <Text style={styles.leegTekst}>Nog geen interesses toegevoegd.</Text>
+                  ) : (
+                    <View style={styles.chipsGrid}>
+                      {interesses.map((int) => (
+                        <View key={int} style={styles.chip}>
+                          <Text style={styles.chipTekst}>
+                            {interesseEmoji(int)} {int}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+
+                {extraFotos.length > 0 && (
+                  <View style={styles.sectie}>
+                    <View style={styles.sectieHeader}>
+                      <Text style={styles.sectieLabel}>Foto's</Text>
+                      <Text style={styles.sectieAantal}>{extraFotos.length}</Text>
+                    </View>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.fotoScroll}
+                      contentContainerStyle={styles.fotoScrollInhoud}
+                    >
+                      {extraFotos.map((foto) => (
+                        <Image
+                          key={foto.id}
+                          source={{ uri: foto.photo_url }}
+                          style={styles.fotoItem}
+                        />
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
             )}
-            <Text style={styles.verwijderTekst}>Account verwijderen</Text>
-          </Pressable>
+
+            {actieveTab === 'Stats' && (
+              <View style={styles.sectie}>
+                <Text style={styles.leegTekst}>Stats komen binnenkort.</Text>
+              </View>
+            )}
+
+            {actieveTab === 'Communities' && (
+              <View style={styles.sectie}>
+                <Text style={styles.leegTekst}>Communities komen binnenkort.</Text>
+              </View>
+            )}
+          </ScrollView>
         </>
       )}
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll:     { flex: 1, backgroundColor: COLORS.surface },
-  scrollInhoud: { paddingHorizontal: 16, gap: 0 },
+  wrapper:        { flex: 1, backgroundColor: '#fff' },
 
-  pagetitel: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: COLORS.text,
-    letterSpacing: -0.6,
-    marginBottom: 20,
-  },
+  header:         { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingBottom: 12 },
+  rondeKnop:      { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center' },
 
-  hoofdKaart: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  avatarFoto: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.surface,
-  },
-  avatarPlaat: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarLetters: { fontSize: 20, fontWeight: '700', color: '#fff' },
-  hoofdKaartTekst: { flex: 1, marginLeft: 14, justifyContent: 'center' },
-  naamVet:     { fontSize: 17, fontWeight: '700', color: COLORS.text },
-  subRegel:    { fontSize: 14, color: COLORS.text, marginTop: 2 },
-  metaRegel:   { fontSize: 12, color: COLORS.textLight, marginTop: 4 },
+  profielRij:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 24, gap: 16 },
+  avatar:         { width: 90, height: 90, borderRadius: 45 },
+  avatarPlaat:    { backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
+  avatarLetters:  { fontSize: 32, fontWeight: '700', color: '#fff' },
+  profielTekst:   { flex: 1, gap: 4 },
+  naamRij:        { flexDirection: 'row', alignItems: 'baseline' },
+  naamVet:        { fontSize: 28, fontWeight: '700', color: COLORS.text, letterSpacing: -0.5 },
+  leeftijdTekst:  { fontSize: 28, fontWeight: '400', color: '#C7C7CC', letterSpacing: -0.5 },
+  bewerkLink:     { fontSize: 15, fontWeight: '500', color: PAARS },
 
-  actiePaar:      { flexDirection: 'row', gap: 12, marginBottom: 24 },
-  actieKaart: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    minHeight: 96,
-    backgroundColor: COLORS.background,
-    borderRadius: 18,
-    paddingVertical: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  actieKaartTekst: { fontSize: 13, fontWeight: '600', color: COLORS.text, textAlign: 'center' },
+  tabBalk:        { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.12)', paddingHorizontal: 16 },
+  tabItem:        { marginRight: 24, paddingBottom: 10 },
+  tabTekst:       { fontSize: 16, fontWeight: '600', color: '#C7C7CC' },
+  tabActief:      { color: COLORS.text },
+  tabLijn:        { position: 'absolute', bottom: 0, left: 0, right: 0, height: 2.5, backgroundColor: PAARS, borderRadius: 2 },
 
-  sectieKop: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.textLight,
-    marginBottom: 10,
-    marginTop: 4,
-    letterSpacing: 0.2,
-  },
+  scroll:         { flex: 1 },
+  scrollInhoud:   { paddingHorizontal: 16, paddingTop: 20 },
 
-  kaartenStapel: { gap: 8, marginBottom: 20 },
-  rijKaart: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.background,
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  rijLabel: { fontSize: 16, fontWeight: '500', color: COLORS.text },
-  rechtsGroep: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  tabInhoud:      { gap: 28 },
+  sectie:         { gap: 14 },
+  sectieHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sectieLabel:    { fontSize: 16, fontWeight: '700', color: COLORS.text },
+  sectieAantal:   { fontSize: 15, fontWeight: '500', color: '#C7C7CC' },
 
-  badge: {
-    backgroundColor: COLORS.primary,
-    minWidth: 26,
-    height: 26,
-    borderRadius: 13,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeTekst: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  chipsGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  chip:           { backgroundColor: '#F2F2F7', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
+  chipTekst:      { fontSize: 14, fontWeight: '500', color: COLORS.text },
 
-  logoutKaart: { justifyContent: 'flex-start', gap: 12, marginTop: 8 },
-  logoutTekst: { fontSize: 16, fontWeight: '600', color: '#E53E3E' },
+  leegTekst:      { fontSize: 14, color: COLORS.textLight },
 
-  verwijderKaart: {
-    justifyContent: 'flex-start',
-    gap: 12,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(155, 44, 44, 0.25)',
-    backgroundColor: '#FFFAFA',
-  },
-  verwijderTekst: { fontSize: 16, fontWeight: '600', color: '#9B2C2C' },
+  fotoScroll:      { marginHorizontal: -16 },
+  fotoScrollInhoud: { paddingHorizontal: 16, gap: 10 },
+  fotoItem:        { width: 120, height: 120, borderRadius: 12 },
 });

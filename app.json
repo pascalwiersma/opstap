@@ -17,7 +17,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.pascalwiersma.opstap",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "OpStap gebruikt je locatie om je op de kaart te tonen."
+        "NSLocationWhenInUseUsageDescription": "OpStap gebruikt je locatie om je op de kaart te tonen.",
+        "NSPhotoLibraryUsageDescription": "OpStap gebruikt je fotobibliotheek om je profielfoto in te stellen."
       }
     },
     "android": {
@@ -48,7 +49,13 @@
           "locationWhenInUsePermission": "OpStap gebruikt je locatie om je op de kaart te tonen."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "OpStap gebruikt je fotobibliotheek om je profielfoto in te stellen."
+        }
+      ]
     ]
   }
 }

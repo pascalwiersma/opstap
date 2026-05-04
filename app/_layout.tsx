@@ -26,8 +26,11 @@ export default function RootLayout() {
       <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="profiel-bewerken" options={{ headerShown: false }} />
+      <Stack.Screen name="profiel-naam-bewerken" options={{ headerShown: false }} />
+      <Stack.Screen name="profiel-bio-bewerken" options={{ headerShown: false }} />
       <Stack.Screen name="instellingen" options={{ headerShown: false }} />
       <Stack.Screen name="meldingen" options={{ headerShown: false }} />
+      <Stack.Screen name="helpcentrum" options={{ headerShown: false }} />
       <Stack.Screen name="event/aanmaken" options={{ title: 'Event aanmaken' }} />
       <Stack.Screen name="event/[id]" options={{ title: 'Event' }} />
       <Stack.Screen name="venue/[id]" options={{ title: 'Venue' }} />

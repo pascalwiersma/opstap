@@ -134,7 +134,7 @@ export default function OnboardingScreen() {
       ? 'Zo zien andere gebruikers je in de app.'
       : stap === 2
         ? 'We gebruiken je e-mailadres alleen voor belangrijke updates en om je account veilig te houden.'
-        : 'Verplicht: zo weten we je leeftijd en kunnen we passende plekken voorstellen.';
+        : 'Zo weten we je leeftijd en kunnen we passende plekken voorstellen.';
 
   return (
     <View style={styles.flex}>
