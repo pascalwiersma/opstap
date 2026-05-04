@@ -1,8 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { COLORS } from '../constants/colors';
 
 const VRAGEN = [
@@ -15,7 +15,7 @@ const VRAGEN = [
       },
       {
         vraag: 'Hoe verwijder ik mijn account?',
-        antwoord: 'Stuur een e-mail naar support@opstap.nl met je telefoonnummer. We verwijderen je account binnen 5 werkdagen.',
+        antwoord: 'Stuur een e-mail naar support@opstap.app met je telefoonnummer. We verwijderen je account binnen 5 werkdagen.',
       },
     ],
   },
@@ -111,7 +111,7 @@ export default function HelpcentrumScreen() {
           <Text style={styles.contactTitel}>Nog vragen?</Text>
           <Text style={styles.contactTekst}>
             Stuur een e-mail naar{' '}
-            <Text style={styles.contactLink}>support@opstap.nl</Text>
+            <Text style={styles.contactLink}>support@opstap.app</Text>
           </Text>
         </View>
       </ScrollView>
@@ -120,20 +120,20 @@ export default function HelpcentrumScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrapper:         { flex: 1, backgroundColor: COLORS.surface },
-  header:          { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingBottom: 16 },
-  titel:           { fontSize: 28, fontWeight: '700', color: COLORS.text },
-  inhoud:          { paddingHorizontal: 16, gap: 24 },
-  blok:            { gap: 8 },
-  categorie:       { fontSize: 13, fontWeight: '600', color: COLORS.textLight, textTransform: 'uppercase', letterSpacing: 0.8 },
-  kaart:           { backgroundColor: COLORS.background, borderRadius: 12 },
-  scheidingslijn:  { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,0,0,0.08)', marginHorizontal: 16 },
-  vraagRij:        { paddingHorizontal: 16, paddingVertical: 14, gap: 8 },
-  vraagHeader:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  vraagTekst:      { flex: 1, fontSize: 15, fontWeight: '500', color: COLORS.text },
-  antwoordTekst:   { fontSize: 14, color: COLORS.textLight, lineHeight: 21 },
-  contactBlok:     { backgroundColor: COLORS.background, borderRadius: 12, padding: 16, gap: 4 },
-  contactTitel:    { fontSize: 15, fontWeight: '600', color: COLORS.text },
-  contactTekst:    { fontSize: 14, color: COLORS.textLight, lineHeight: 21 },
-  contactLink:     { color: COLORS.primary, fontWeight: '500' },
+  wrapper: { flex: 1, backgroundColor: COLORS.surface },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingBottom: 16 },
+  titel: { fontSize: 28, fontWeight: '700', color: COLORS.text },
+  inhoud: { paddingHorizontal: 16, gap: 24 },
+  blok: { gap: 8 },
+  categorie: { fontSize: 13, fontWeight: '600', color: COLORS.textLight, textTransform: 'uppercase', letterSpacing: 0.8 },
+  kaart: { backgroundColor: COLORS.background, borderRadius: 12 },
+  scheidingslijn: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,0,0,0.08)', marginHorizontal: 16 },
+  vraagRij: { paddingHorizontal: 16, paddingVertical: 14, gap: 8 },
+  vraagHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  vraagTekst: { flex: 1, fontSize: 15, fontWeight: '500', color: COLORS.text },
+  antwoordTekst: { fontSize: 14, color: COLORS.textLight, lineHeight: 21 },
+  contactBlok: { backgroundColor: COLORS.background, borderRadius: 12, padding: 16, gap: 4 },
+  contactTitel: { fontSize: 15, fontWeight: '600', color: COLORS.text },
+  contactTekst: { fontSize: 14, color: COLORS.textLight, lineHeight: 21 },
+  contactLink: { color: COLORS.primary, fontWeight: '500' },
 });

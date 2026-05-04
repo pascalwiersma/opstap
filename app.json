@@ -55,6 +55,12 @@
         {
           "photosPermission": "OpStap gebruikt je fotobibliotheek om je profielfoto in te stellen."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "iosDisplayInForeground": true
+        }
       ]
     ]
   }

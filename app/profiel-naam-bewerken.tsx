@@ -32,6 +32,7 @@ export default function ProfielNaamBewerkScreen() {
   const [naam, setNaam] = useState('');
   const [email, setEmail] = useState('');
   const [geboorteDatum, setGeboorteDatum] = useState(defaultGeboorteDatum);
+  const [geboorteDatumVergrendeld, setGeboorteDatumVergrendeld] = useState(false);
   const [bezig, setBezig] = useState(false);
 
   const grenzen = useMemo(() => grenzenGeboortedatum(), []);
@@ -50,8 +51,10 @@ export default function ProfielNaamBewerkScreen() {
         setNaam(data.name ?? '');
         setEmail(data.email ?? '');
         const parsed = parseGeboorteDb(data.birth_date);
-        if (parsed) setGeboorteDatum(parsed);
-        else if (typeof data.age === 'number' && data.age > 0) {
+        if (parsed) {
+          setGeboorteDatum(parsed);
+          setGeboorteDatumVergrendeld(true);
+        } else if (typeof data.age === 'number' && data.age > 0) {
           const d = new Date();
           d.setFullYear(d.getFullYear() - data.age);
           setGeboorteDatum(d);
@@ -65,22 +68,22 @@ export default function ProfielNaamBewerkScreen() {
       Alert.alert('Naam vereist', 'Voer een naam in om op te slaan.');
       return;
     }
-    if (!geboorteCheck.ok) {
+    if (!geboorteDatumVergrendeld && !geboorteCheck.ok) {
       Alert.alert('Geboortedatum', geboorteCheck.message);
       return;
     }
     setBezig(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setBezig(false); return; }
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        name: naam.trim(),
-        email: email.trim() ? email.trim().toLowerCase() : null,
-        birth_date: formatGeboorteDb(geboorteDatum),
-        age: geboorteCheck.age,
-      })
-      .eq('id', user.id);
+    const update: Record<string, unknown> = {
+      name: naam.trim(),
+      email: email.trim() ? email.trim().toLowerCase() : null,
+    };
+    if (!geboorteDatumVergrendeld) {
+      update.birth_date = formatGeboorteDb(geboorteDatum);
+      update.age = geboorteCheck.age;
+    }
+    const { error } = await supabase.from('profiles').update(update).eq('id', user.id);
     setBezig(false);
     if (error) {
       Alert.alert('Fout', 'Kon profiel niet opslaan. Probeer opnieuw.');
@@ -137,20 +140,32 @@ export default function ProfielNaamBewerkScreen() {
 
           <View style={styles.veld}>
             <Text style={styles.label}>Geboortedatum</Text>
-            <Text style={styles.leeftijd}>Leeftijd: {leeftijdUitGeboortedatum(geboorteDatum)} jaar</Text>
-            <GeboortedatumKiezer
-              value={geboorteDatum}
-              minimumDate={grenzen.min}
-              maximumDate={grenzen.max}
-              onChange={setGeboorteDatum}
-            />
-            {!geboorteCheck.ok && <Text style={styles.fout}>{geboorteCheck.message}</Text>}
+            {geboorteDatumVergrendeld ? (
+              <>
+                <Text style={styles.leeftijd}>{leeftijdUitGeboortedatum(geboorteDatum)} jaar</Text>
+                <Text style={styles.vergrendeldTekst}>
+                  Geboortedatum kan niet worden gewijzigd. Neem contact op via{' '}
+                  <Text style={styles.vergrendeldLink}>support@opstap.app</Text>.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.leeftijd}>Leeftijd: {leeftijdUitGeboortedatum(geboorteDatum)} jaar</Text>
+                <GeboortedatumKiezer
+                  value={geboorteDatum}
+                  minimumDate={grenzen.min}
+                  maximumDate={grenzen.max}
+                  onChange={setGeboorteDatum}
+                />
+                {!geboorteCheck.ok && <Text style={styles.fout}>{geboorteCheck.message}</Text>}
+              </>
+            )}
           </View>
 
           <Pressable
-            style={[styles.opslaanKnop, (bezig || !geboorteCheck.ok) && styles.disabled]}
+            style={[styles.opslaanKnop, (bezig || (!geboorteDatumVergrendeld && !geboorteCheck.ok)) && styles.disabled]}
             onPress={opslaan}
-            disabled={bezig || !geboorteCheck.ok}
+            disabled={bezig || (!geboorteDatumVergrendeld && !geboorteCheck.ok)}
           >
             <Text style={styles.opslaanTekst}>{bezig ? 'Opslaan…' : 'Opslaan'}</Text>
           </Pressable>
@@ -169,7 +184,9 @@ const styles = StyleSheet.create({
   veld:        { backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14, gap: 6 },
   label:       { fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', letterSpacing: 0.6 },
   leeftijd:    { fontSize: 14, fontWeight: '600', color: COLORS.primary, marginBottom: 4 },
-  fout:        { fontSize: 13, color: '#C53030', marginTop: 4 },
+  fout:             { fontSize: 13, color: '#C53030', marginTop: 4 },
+  vergrendeldTekst: { fontSize: 13, color: COLORS.textLight, lineHeight: 19 },
+  vergrendeldLink:  { color: COLORS.primary },
   input:       { fontSize: 16, color: COLORS.text, padding: 0 },
   opslaanKnop: { backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginTop: 4 },
   disabled:    { opacity: 0.6 },

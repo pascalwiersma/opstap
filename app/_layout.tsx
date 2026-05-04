@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
-import { Stack } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { Stack, router } from 'expo-router';
 import { Session } from '@supabase/supabase-js';
+import * as Notifications from 'expo-notifications';
 import { supabase } from '../services/supabase';
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -15,7 +17,17 @@ export default function RootLayout() {
       setSession(session);
     });
 
-    return () => subscription.unsubscribe();
+    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, unknown>;
+      if (data?.type === 'match_proposed' && typeof data?.matchId === 'string') {
+        router.push(`/match/${data.matchId}`);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      responseListener.current?.remove();
+    };
   }, []);
 
   if (session === undefined) return null;
@@ -31,6 +43,9 @@ export default function RootLayout() {
       <Stack.Screen name="instellingen" options={{ headerShown: false }} />
       <Stack.Screen name="meldingen" options={{ headerShown: false }} />
       <Stack.Screen name="helpcentrum" options={{ headerShown: false }} />
+      <Stack.Screen name="voorwaarden" options={{ headerShown: false }} />
+      <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="chatroom/[channelId]" options={{ headerShown: false }} />
       <Stack.Screen name="event/aanmaken" options={{ title: 'Event aanmaken' }} />
       <Stack.Screen name="event/[id]" options={{ title: 'Event' }} />
       <Stack.Screen name="venue/[id]" options={{ title: 'Venue' }} />

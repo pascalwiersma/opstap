@@ -59,7 +59,7 @@ export default function InstellingenScreen() {
       titel: 'Informatie',
       rijen: [
         { label: 'Helpcentrum', icoon: 'help-circle-outline', actie: () => router.push('/helpcentrum') },
-        { label: 'Voorwaarden & privacy', icoon: 'document-text-outline', actie: () => Alert.alert('Binnenkort', 'Deze pagina wordt binnenkort toegevoegd.') },
+        { label: 'Voorwaarden & privacy', icoon: 'document-text-outline', actie: () => router.push('/voorwaarden') },
       ],
     },
     {
