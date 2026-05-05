@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import Mapbox from '@rnmapbox/maps';
 import * as Location from 'expo-location';
-import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { supabase } from '../../services/supabase';
 import { useVenues, VenuePin } from '../../hooks/useVenues';
 
 Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '');
@@ -98,8 +99,21 @@ export default function KaartScreen() {
   const venues = useVenues();
   const slideAnim = useRef(new Animated.Value(CARD_HEIGHT + 20)).current;
   const [actieveFilters, setActieveFilters] = useState<Set<VenueTyp>>(new Set(ALLE_TYPES));
-  /** Later: Supabase / realtime; nu 0 = geen badge */
-  const [meldingenOngelezen] = useState(0);
+  const [meldingenOngelezen, setMeldingenOngelezen] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return
+        supabase
+          .from('friendships')
+          .select('id', { count: 'exact', head: true })
+          .eq('friend_id', user.id)
+          .eq('status', 'pending')
+          .then(({ count }) => setMeldingenOngelezen(count ?? 0))
+      })
+    }, [])
+  );
 
   function toggleFilter(type: VenueTyp) {
     setActieveFilters((prev) => {
