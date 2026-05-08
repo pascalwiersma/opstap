@@ -18,7 +18,8 @@
       "bundleIdentifier": "com.pascalwiersma.opstap",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "OpStap gebruikt je locatie om je op de kaart te tonen.",
-        "NSPhotoLibraryUsageDescription": "OpStap gebruikt je fotobibliotheek om je profielfoto in te stellen."
+        "NSPhotoLibraryUsageDescription": "OpStap gebruikt je fotobibliotheek om je profielfoto in te stellen.",
+        "NFCReaderUsageDescription": "OpStap gebruikt NFC om je identiteitsdocument te scannen voor verificatie."
       }
     },
     "android": {
@@ -61,7 +62,8 @@
         {
           "iosDisplayInForeground": true
         }
-      ]
+      ],
+      "@didit-protocol/sdk-react-native"
     ]
   }
 }

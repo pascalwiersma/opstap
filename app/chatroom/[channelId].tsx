@@ -1,6 +1,9 @@
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   Pressable,
@@ -10,8 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import type { Channel as StreamChannel } from 'stream-chat';
 import {
   Channel,
   Chat,
@@ -19,11 +21,10 @@ import {
   MessageList,
   OverlayProvider,
 } from 'stream-chat-expo';
-import type { Channel as StreamChannel } from 'stream-chat';
-import { streamClient } from '../../services/stream';
-import { verbindStream, getOrCreateDm } from '../../services/dm';
-import { supabase } from '../../services/supabase';
 import { COLORS } from '../../constants/colors';
+import { getOrCreateDm, verbindStream } from '../../services/dm';
+import { streamClient } from '../../services/stream';
+import { supabase } from '../../services/supabase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -98,7 +99,7 @@ function LedenModal({
 
 export default function ChatroomScreen() {
   const { channelId } = useLocalSearchParams<{ channelId: string }>()
-  const { top } = useSafeAreaInsets()
+  const { top, bottom } = useSafeAreaInsets()
   const [kanaal, setKanaal] = useState<StreamChannel | null>(null)
   const [loading, setLoading] = useState(true)
   const [fout, setFout] = useState<string | null>(null)
@@ -106,6 +107,7 @@ export default function ChatroomScreen() {
   const [leden, setLeden] = useState<Lid[]>([])
   const [dmBezig, setDmBezig] = useState(false)
   const mijnUserIdRef = useRef<string | null>(null)
+  const anderePersoonRef = useRef<Lid | null>(null)
   const verbonden = useRef(false)
 
   const isGroepsChat = channelId?.startsWith('match-')
@@ -114,7 +116,7 @@ export default function ChatroomScreen() {
     verbindEnLaad()
     return () => {
       if (verbonden.current) {
-        streamClient.disconnectUser().catch(() => {})
+        streamClient.disconnectUser().catch(() => { })
         verbonden.current = false
       }
     }
@@ -141,10 +143,7 @@ export default function ChatroomScreen() {
       await channel.watch()
       setKanaal(channel)
 
-      // Ledendata ophalen voor groepschats
-      if (isGroepsChat) {
-        await laadLeden(channel)
-      }
+      await laadLeden(channel)
     } catch (e) {
       console.error('Stream Chat fout:', e)
       setFout('Kon de chat niet laden. Probeer het opnieuw.')
@@ -183,6 +182,58 @@ export default function ChatroomScreen() {
     }
   }
 
+  function openActiemenu() {
+    if (!anderePersoonRef.current) return
+    const naam = anderePersoonRef.current.naam
+    Alert.alert(naam, undefined, [
+      {
+        text: 'Rapporteer',
+        style: 'destructive',
+        onPress: () => Alert.alert(
+          'Rapporteer',
+          `Waarom wil je ${naam} rapporteren?`,
+          [
+            { text: 'Ongepast gedrag', onPress: () => verstuurRapport('ongepast_gedrag') },
+            { text: 'Spam', onPress: () => verstuurRapport('spam') },
+            { text: 'Annuleer', style: 'cancel' },
+          ],
+        ),
+      },
+      {
+        text: 'Blokkeer',
+        style: 'destructive',
+        onPress: () => Alert.alert(
+          'Blokkeer',
+          `Weet je zeker dat je ${naam} wilt blokkeren? Je ziet dan elkaars berichten niet meer.`,
+          [
+            { text: 'Annuleer', style: 'cancel' },
+            { text: 'Blokkeer', style: 'destructive', onPress: voerBlokkeringUit },
+          ],
+        ),
+      },
+      { text: 'Annuleer', style: 'cancel' },
+    ])
+  }
+
+  async function verstuurRapport(reden: string) {
+    if (!anderePersoonRef.current || !mijnUserIdRef.current) return
+    await supabase.from('reports').insert({
+      reporter_id: mijnUserIdRef.current,
+      reported_id: anderePersoonRef.current.userId,
+      reason: reden,
+    })
+    Alert.alert('Gemeld', 'We nemen je melding in behandeling. Dank je.')
+  }
+
+  async function voerBlokkeringUit() {
+    if (!anderePersoonRef.current || !mijnUserIdRef.current) return
+    await supabase.from('blocks').insert({
+      blocker_id: mijnUserIdRef.current,
+      blocked_id: anderePersoonRef.current.userId,
+    })
+    router.back()
+  }
+
   if (loading) {
     return (
       <View style={[styles.midden, { paddingTop: top }]}>
@@ -203,9 +254,14 @@ export default function ChatroomScreen() {
     )
   }
 
+  const anderePersoon = !isGroepsChat
+    ? leden.find(l => l.userId !== mijnUserIdRef.current) ?? null
+    : null
+  anderePersoonRef.current = anderePersoon
+
   const groepsNaam = isGroepsChat
     ? ((kanaal.data as { name?: string } | undefined)?.name ?? 'Groepschat')
-    : (leden.length > 0 ? leden[0].naam : 'Privégesprek')
+    : (anderePersoon?.naam ?? 'Privégesprek')
 
   const aantalLeden = Object.keys(kanaal.state.members ?? {}).length
 
@@ -216,25 +272,40 @@ export default function ChatroomScreen() {
           <Pressable style={styles.terugRond} onPress={() => router.back()} hitSlop={8}>
             <Ionicons name="chevron-back" size={22} color={COLORS.secondary} />
           </Pressable>
-          <View style={styles.headerInfo}>
-            <Text style={styles.headerTitel} numberOfLines={1}>{groepsNaam}</Text>
-            {isGroepsChat && (
-              <Text style={styles.headerSub}>{aantalLeden} deelnemers</Text>
+          <Pressable
+            style={styles.headerInfoRij}
+            onPress={anderePersoon ? () => router.push(`/profiel/${anderePersoon.userId}`) : undefined}
+            disabled={!anderePersoon}
+          >
+            {anderePersoon && (
+              <Avatar url={anderePersoon.avatarUrl} naam={anderePersoon.naam} size={36} />
             )}
-          </View>
-          {isGroepsChat && (
+            <View style={styles.headerInfo}>
+              <Text style={styles.headerTitel} numberOfLines={1}>{groepsNaam}</Text>
+              {isGroepsChat && (
+                <Text style={styles.headerSub}>{aantalLeden} deelnemers</Text>
+              )}
+            </View>
+          </Pressable>
+          {isGroepsChat ? (
             <Pressable style={styles.ledenKnop} onPress={() => setLedenOpen(true)} hitSlop={8}>
               <Ionicons name="people-outline" size={22} color={COLORS.secondary} />
+            </Pressable>
+          ) : (
+            <Pressable style={styles.ledenKnop} onPress={openActiemenu} hitSlop={8}>
+              <Ionicons name="ellipsis-horizontal" size={22} color={COLORS.secondary} />
             </Pressable>
           )}
         </View>
 
-        <Chat client={streamClient}>
-          <Channel channel={kanaal} keyboardVerticalOffset={top + 56}>
-            <MessageList />
-            <MessageComposer />
-          </Channel>
-        </Chat>
+        <View style={{ flex: 1, paddingBottom: Math.max(0, bottom - 50) }}>
+          <Chat client={streamClient}>
+            <Channel channel={kanaal} keyboardVerticalOffset={top + 56}>
+              <MessageList />
+              <MessageComposer />
+            </Channel>
+          </Chat>
+        </View>
 
         {isGroepsChat && (
           <LedenModal
@@ -258,32 +329,33 @@ export default function ChatroomScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrapper:            { flex: 1, backgroundColor: '#fff' },
-  midden:             { flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', gap: 16, paddingHorizontal: 32 },
+  wrapper: { flex: 1, backgroundColor: '#fff' },
+  midden: { flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', gap: 16, paddingHorizontal: 32 },
 
-  header:             { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 10, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.08)' },
-  terugRond:          { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center' },
-  headerInfo:         { flex: 1 },
-  headerTitel:        { fontSize: 17, fontWeight: '700', color: COLORS.text },
-  headerSub:          { fontSize: 12, color: COLORS.textLight },
-  ledenKnop:          { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 10, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.08)' },
+  terugRond: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center' },
+  headerInfoRij: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerInfo: { flex: 1 },
+  headerTitel: { fontSize: 17, fontWeight: '700', color: COLORS.text },
+  headerSub: { fontSize: 12, color: COLORS.textLight },
+  ledenKnop: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center' },
 
-  foutTekst:          { fontSize: 15, color: COLORS.textLight, textAlign: 'center' },
-  terugKnopPrimary:   { backgroundColor: COLORS.primary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 },
-  terugTekst:         { fontSize: 15, fontWeight: '700', color: '#fff' },
+  foutTekst: { fontSize: 15, color: COLORS.textLight, textAlign: 'center' },
+  terugKnopPrimary: { backgroundColor: COLORS.primary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 },
+  terugTekst: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
-  avatarFallback:     { backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
-  avatarInitiaal:     { fontWeight: '700', color: '#fff' },
+  avatarFallback: { backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
+  avatarInitiaal: { fontWeight: '700', color: '#fff' },
 
-  modalWrapper:       { flex: 1, backgroundColor: '#fff' },
-  modalHeader:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.08)' },
-  modalTitel:         { fontSize: 18, fontWeight: '700', color: COLORS.text },
-  modalLijst:         { padding: 16, gap: 8 },
-  lidRij:             { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
-  lidNaam:            { flex: 1, fontSize: 16, fontWeight: '500', color: COLORS.text },
-  dmKnop:             { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: COLORS.secondary },
-  dmTekst:            { fontSize: 13, fontWeight: '600', color: COLORS.secondary },
+  modalWrapper: { flex: 1, backgroundColor: '#fff' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.08)' },
+  modalTitel: { fontSize: 18, fontWeight: '700', color: COLORS.text },
+  modalLijst: { padding: 16, gap: 8 },
+  lidRij: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  lidNaam: { flex: 1, fontSize: 16, fontWeight: '500', color: COLORS.text },
+  dmKnop: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: COLORS.secondary },
+  dmTekst: { fontSize: 13, fontWeight: '600', color: COLORS.secondary },
 
-  dmOverlay:          { position: 'absolute', bottom: 40, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(0,0,0,0.75)', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 24 },
-  dmOverlayTekst:     { fontSize: 14, color: '#fff', fontWeight: '600' },
+  dmOverlay: { position: 'absolute', bottom: 40, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(0,0,0,0.75)', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 24 },
+  dmOverlayTekst: { fontSize: 14, color: '#fff', fontWeight: '600' },
 })

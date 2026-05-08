@@ -47,6 +47,7 @@ export default function ProfielScreen() {
   const [naam, setNaam] = useState('');
   const [leeftijd, setLeeftijd] = useState<number | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [verificatieStatus, setVerificatieStatus] = useState<string | null>(null);
   const [interesses, setInteresses] = useState<string[]>([]);
   const [extraFotos, setExtraFotos] = useState<{ id: string; photo_url: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +60,7 @@ export default function ProfielScreen() {
         if (!user) return;
 
         const [profielRes, interessesRes, fotosRes] = await Promise.all([
-          supabase.from('profiles').select('name, avatar_url, age').eq('id', user.id).single(),
+          supabase.from('profiles').select('name, avatar_url, age, verification_status').eq('id', user.id).single(),
           supabase.from('user_interests').select('interest').eq('user_id', user.id),
           supabase.from('profile_photos').select('id, photo_url').eq('user_id', user.id).order('position'),
         ]);
@@ -68,6 +69,7 @@ export default function ProfielScreen() {
           setNaam(profielRes.data.name ?? '');
           setLeeftijd(profielRes.data.age ?? null);
           setAvatarUrl(profielRes.data.avatar_url ?? null);
+          setVerificatieStatus(profielRes.data.verification_status ?? null);
         }
         if (interessesRes.data) setInteresses(interessesRes.data.map((r) => r.interest));
         if (fotosRes.data) setExtraFotos(fotosRes.data);
@@ -106,6 +108,9 @@ export default function ProfielScreen() {
             <View style={styles.profielTekst}>
               <View style={styles.naamRij}>
                 <Text style={styles.naamVet}>{naam || '—'}</Text>
+                {verificatieStatus === 'approved' && (
+                  <Ionicons name="checkmark-circle" size={20} color="#3B82F6" style={{ marginLeft: 6 }} />
+                )}
                 {leeftijd != null && (
                   <Text style={styles.leeftijdTekst}> {leeftijd}</Text>
                 )}

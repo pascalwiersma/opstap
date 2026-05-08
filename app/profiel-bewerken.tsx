@@ -23,7 +23,7 @@ const FOTO_GROOTTE = 110;
 const MENU_RIJEN = [
   { label: 'Naam en leeftijd aanpassen', route: '/profiel-naam-bewerken' },
   { label: 'Profielomschrijving wijzigen', route: '/profiel-bio-bewerken' },
-  { label: 'Interesses aanpassen', route: null },
+  { label: 'Interesses aanpassen', route: '/interesses-bewerken' },
   { label: 'Eigenschappen aanpassen', route: null },
 ] as const;
 
@@ -60,9 +60,10 @@ export default function ProfielBewerkScreen() {
       const url = await kiesEnUploadFoto(`${userId}/avatar.jpg`);
       if (!url) return;
       await supabase.from('profiles').update({ avatar_url: url }).eq('id', userId);
-      setAvatarUrl(url);
-    } catch {
-      Alert.alert('Fout', 'Kon foto niet uploaden. Probeer opnieuw.');
+      setAvatarUrl(`${url}?t=${Date.now()}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : JSON.stringify(e);
+      Alert.alert('Fout', msg);
     } finally {
       setAvatarBezig(false);
     }

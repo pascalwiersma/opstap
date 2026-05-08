@@ -21,3 +21,6 @@ CREATE POLICY "reageer op verzoek" ON friendships
 
 CREATE POLICY "verwijder vriendschap" ON friendships
   FOR DELETE USING (auth.uid() = user_id OR auth.uid() = friend_id);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.friendships TO authenticated;
+GRANT SELECT ON public.friendships TO anon;

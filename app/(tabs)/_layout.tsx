@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Redirect, Tabs, usePathname } from 'expo-router';
 import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import { PlatformPressable } from '@react-navigation/elements';
 import { Session } from '@supabase/supabase-js';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../services/supabase';
 import { isProfileOnboardingComplete } from '../../hooks/profileOnboarding';
 
@@ -57,10 +58,32 @@ function IncheckenOranjeRond({ children: _negeren, ...rest }: BottomTabBarButton
   );
 }
 
+function PendingBanner() {
+  const { top } = useSafeAreaInsets();
+  return (
+    <View style={[banner.wrapper, { paddingTop: top + 6 }]}>
+      <Ionicons name="time-outline" size={15} color="#fff" />
+      <Text style={banner.tekst}>
+        Je identiteit wordt handmatig beoordeeld. Je hoort snel van ons.
+      </Text>
+    </View>
+  );
+}
+
+const banner = StyleSheet.create({
+  wrapper: {
+    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 999,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#F59E0B', paddingHorizontal: 16, paddingBottom: 10,
+  },
+  tekst: { flex: 1, fontSize: 12, fontWeight: '600', color: '#fff', lineHeight: 18 },
+});
+
 export default function TabsLayout() {
   const pathname = usePathname();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [onboardingAfgerond, setOnboardingAfgerond] = useState<boolean | null>(null);
+  const [verificatieStatus, setVerificatieStatus] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -73,15 +96,19 @@ export default function TabsLayout() {
   useEffect(() => {
     if (!session?.user) {
       setOnboardingAfgerond(null);
+      setVerificatieStatus(null);
       return;
     }
     let weg = false;
-    isProfileOnboardingComplete(session.user.id).then((ok) => {
-      if (!weg) setOnboardingAfgerond(ok);
+    Promise.all([
+      isProfileOnboardingComplete(session.user.id),
+      supabase.from('profiles').select('verification_status').eq('id', session.user.id).single(),
+    ]).then(([ok, profielRes]) => {
+      if (weg) return;
+      setOnboardingAfgerond(ok);
+      setVerificatieStatus(profielRes.data?.verification_status ?? null);
     });
-    return () => {
-      weg = true;
-    };
+    return () => { weg = true; };
   }, [session?.user?.id, pathname]);
 
   if (session === undefined) return null;
@@ -90,6 +117,8 @@ export default function TabsLayout() {
   if (!onboardingAfgerond) return <Redirect href="/onboarding" />;
 
   return (
+    <View style={{ flex: 1 }}>
+    {verificatieStatus === 'pending' && <PendingBanner />}
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -152,5 +181,6 @@ export default function TabsLayout() {
       />
       <Tabs.Screen name="events" options={{ href: null }} />
     </Tabs>
+    </View>
   );
 }

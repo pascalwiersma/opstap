@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../services/supabase';
 import { verbindStream, getOrCreateDm } from '../../services/dm';
 import { COLORS } from '../../constants/colors';
@@ -24,7 +24,18 @@ const INTERESSE_EMOJI: Record<string, string> = {
   gaming: '🎮', yoga: '🧘', fitness: '💪',
 };
 
+const MAANDEN_NL = [
+  'januari', 'februari', 'maart', 'april', 'mei', 'juni',
+  'juli', 'augustus', 'september', 'oktober', 'november', 'december',
+];
+
 function interesseEmoji(i: string) { return INTERESSE_EMOJI[i.toLowerCase()] ?? '✨' }
+
+function lidSindsTekst(created_at: string | null): string | null {
+  if (!created_at) return null
+  const d = new Date(created_at)
+  return `${MAANDEN_NL[d.getMonth()]} ${d.getFullYear()}`
+}
 
 interface ProfielData {
   id: string
@@ -33,6 +44,7 @@ interface ProfielData {
   avatar_url: string | null
   bio: string | null
   trust_score: number | null
+  created_at: string | null
 }
 
 interface Vriendschap {
@@ -50,10 +62,10 @@ function TrustSterren({ score }: { score: number | null }) {
   const leeg = 5 - vol - half
   return (
     <View style={styles.sterrenRij}>
-      {Array.from({ length: vol }).map((_, i) => <Ionicons key={`v${i}`} name="star" size={16} color="#F59E0B" />)}
-      {half === 1 && <Ionicons name="star-half" size={16} color="#F59E0B" />}
-      {Array.from({ length: leeg }).map((_, i) => <Ionicons key={`l${i}`} name="star-outline" size={16} color="#D1D5DB" />)}
-      <Text style={styles.scoreText}>{score.toFixed(1)}/10</Text>
+      {Array.from({ length: vol }).map((_, i) => <Ionicons key={`v${i}`} name="star" size={15} color="#F59E0B" />)}
+      {half === 1 && <Ionicons name="star-half" size={15} color="#F59E0B" />}
+      {Array.from({ length: leeg }).map((_, i) => <Ionicons key={`l${i}`} name="star-outline" size={15} color="#D1D5DB" />)}
+      <Text style={styles.scoreText}>{score.toFixed(1)}</Text>
     </View>
   )
 }
@@ -77,7 +89,9 @@ export default function GebruikersProfielScreen() {
     setMijnId(user.id)
 
     const [profielRes, interessesRes, mijnInteressesRes, vriendschapRes] = await Promise.all([
-      supabase.from('profiles').select('id, name, age, avatar_url, bio, trust_score').eq('id', profielId).single(),
+      supabase.from('profiles')
+        .select('id, name, age, avatar_url, bio, trust_score, created_at, verification_status')
+        .eq('id', profielId).single(),
       supabase.from('user_interests').select('interest').eq('user_id', profielId),
       supabase.from('user_interests').select('interest').eq('user_id', user.id),
       supabase.from('friendships').select('id, user_id, friend_id, status')
@@ -122,10 +136,7 @@ export default function GebruikersProfielScreen() {
     setActieBusy(true)
     try {
       const { data: mijnProfiel } = await supabase
-        .from('profiles')
-        .select('name, avatar_url')
-        .eq('id', mijnId)
-        .single()
+        .from('profiles').select('name, avatar_url').eq('id', mijnId).single()
       await verbindStream(mijnId, mijnProfiel?.name ?? 'Gebruiker', mijnProfiel?.avatar_url ?? null)
       const channelId = await getOrCreateDm(mijnId, profielId)
       router.push(`/chatroom/${channelId}`)
@@ -191,84 +202,129 @@ export default function GebruikersProfielScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.midden, { paddingTop: top }]}>
-        <ActivityIndicator color={ORANJE} size="large" />
-      </View>
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.midden, { paddingTop: top }]}>
+          <ActivityIndicator color={ORANJE} size="large" />
+        </View>
+      </>
     )
   }
 
   if (!profiel) {
     return (
-      <View style={[styles.midden, { paddingTop: top }]}>
-        <Ionicons name="alert-circle-outline" size={40} color={COLORS.textLight} />
-        <Text style={styles.foutTekst}>Gebruiker niet gevonden</Text>
-        <Pressable style={styles.knopPrimair} onPress={() => router.back()}>
-          <Text style={styles.knopTekstWit}>Terug</Text>
-        </Pressable>
-      </View>
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.midden, { paddingTop: top }]}>
+          <Ionicons name="alert-circle-outline" size={40} color={COLORS.textLight} />
+          <Text style={styles.foutTekst}>Gebruiker niet gevonden</Text>
+          <Pressable style={styles.knopPrimair} onPress={() => router.back()}>
+            <Text style={styles.knopTekstWit}>Terug</Text>
+          </Pressable>
+        </View>
+      </>
     )
   }
 
   const gedeeld = interesses.filter(i => mijnInteresses.includes(i))
-  const overig = interesses.filter(i => !mijnInteresses.includes(i))
+  const lidSinds = lidSindsTekst(profiel.created_at)
 
   return (
-    <View style={[styles.wrapper, { paddingTop: top }]}>
-      <View style={styles.navHeader}>
-        <Pressable style={styles.terugKnop} onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="chevron-back" size={22} color={COLORS.secondary} />
-        </Pressable>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.avatarWrapper}>
-          {profiel.avatar_url ? (
-            <Image source={{ uri: profiel.avatar_url }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarFallback]}>
-              <Text style={styles.avatarInitiaal}>{profiel.name.charAt(0).toUpperCase()}</Text>
-            </View>
-          )}
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.wrapper, { paddingTop: top }]}>
+        {/* Eigen terugknop */}
+        <View style={styles.navHeader}>
+          <Pressable style={styles.terugKnop} onPress={() => router.back()} hitSlop={8}>
+            <Ionicons name="chevron-back" size={22} color={COLORS.secondary} />
+          </Pressable>
         </View>
 
-        <View style={styles.profielKop}>
-          <Text style={styles.naam}>
-            {profiel.name}
-            {profiel.age != null && <Text style={styles.leeftijd}> {profiel.age}</Text>}
-          </Text>
-          <TrustSterren score={profiel.trust_score} />
-        </View>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Avatar */}
+          <View style={styles.avatarWrapper}>
+            {profiel.avatar_url ? (
+              <Image source={{ uri: profiel.avatar_url }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarFallback]}>
+                <Text style={styles.avatarInitiaal}>{profiel.name.charAt(0).toUpperCase()}</Text>
+              </View>
+            )}
+          </View>
 
-        {profiel.bio ? <Text style={styles.bio}>{profiel.bio}</Text> : null}
-
-        <View style={styles.knoppen}>{renderActieKnop()}</View>
-
-        {interesses.length > 0 && (
-          <View style={styles.sectie}>
-            <View style={styles.sectieHeader}>
-              <Text style={styles.sectieLabel}>Interesses</Text>
-              {gedeeld.length > 0 && (
-                <Text style={styles.gedeeldHint}>
-                  {gedeeld.length} gemeen
-                </Text>
+          {/* Naam, leeftijd, trust score */}
+          <View style={styles.profielKop}>
+            <View style={styles.naamRij}>
+              <Text style={styles.naam}>
+                {profiel.name}
+                {profiel.age != null && <Text style={styles.leeftijd}> {profiel.age}</Text>}
+              </Text>
+              {profiel.verification_status === 'approved' && (
+                <Ionicons name="checkmark-circle" size={22} color="#3B82F6" style={{ marginLeft: 6 }} />
               )}
             </View>
-            <View style={styles.chipsGrid}>
-              {[...gedeeld, ...overig].map(int => {
-                const isGedeeld = mijnInteresses.includes(int)
-                return (
-                  <View key={int} style={[styles.chip, isGedeeld && styles.chipGedeeld]}>
-                    <Text style={[styles.chipTekst, isGedeeld && styles.chipTekstGedeeld]}>
+            <TrustSterren score={profiel.trust_score} />
+          </View>
+
+          {/* Actieknop */}
+          <View style={styles.knoppen}>{renderActieKnop()}</View>
+
+          {/* Bio */}
+          <View style={styles.sectie}>
+            {profiel.bio ? (
+              <Text style={styles.bio}>{profiel.bio}</Text>
+            ) : (
+              <Text style={styles.leegTekst}>Nog geen bio ingevuld</Text>
+            )}
+          </View>
+
+          {/* Interesses */}
+          {interesses.length > 0 ? (
+            <View style={styles.sectie}>
+              <Text style={styles.sectieLabel}>Interesses</Text>
+              <View style={styles.chipsGrid}>
+                {interesses.map(int => (
+                  <View key={int} style={styles.chip}>
+                    <Text style={styles.chipTekst}>
                       {interesseEmoji(int)} {int}
                     </Text>
                   </View>
-                )
-              })}
+                ))}
+              </View>
             </View>
-          </View>
-        )}
-      </ScrollView>
-    </View>
+          ) : (
+            <View style={styles.sectie}>
+              <Text style={styles.sectieLabel}>Interesses</Text>
+              <Text style={styles.leegTekst}>Nog geen interesses ingevuld</Text>
+            </View>
+          )}
+
+          {/* Gemeenschappelijke interesses */}
+          {gedeeld.length > 0 && (
+            <View style={styles.gedeeldBlok}>
+              <View style={styles.gedeeldHeader}>
+                <Ionicons name="flame" size={15} color={ORANJE} />
+                <Text style={styles.gedeeldTitel}>Gemeenschappelijke interesses</Text>
+              </View>
+              <View style={styles.chipsGrid}>
+                {gedeeld.map(int => (
+                  <View key={int} style={styles.chipGedeeld}>
+                    <Text style={styles.chipTekstGedeeld}>
+                      {interesseEmoji(int)} {int}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Lid sinds */}
+          {lidSinds && (
+            <Text style={styles.lidSinds}>Lid sinds {lidSinds}</Text>
+          )}
+        </ScrollView>
+      </View>
+    </>
   )
 }
 
@@ -276,23 +332,23 @@ const styles = StyleSheet.create({
   wrapper:      { flex: 1, backgroundColor: '#fff' },
   midden:       { flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', gap: 16, paddingHorizontal: 32 },
 
-  navHeader:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 8 },
+  navHeader:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 4 },
   terugKnop:    { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center' },
 
-  scroll:       { paddingHorizontal: 24, paddingBottom: 48 },
+  scroll:       { paddingHorizontal: 24, paddingBottom: 56 },
 
-  avatarWrapper: { alignItems: 'center', marginBottom: 16, marginTop: 8 },
-  avatar:        { width: 120, height: 120, borderRadius: 60 },
+  avatarWrapper:  { alignItems: 'center', marginBottom: 16, marginTop: 4 },
+  avatar:         { width: 120, height: 120, borderRadius: 60 },
   avatarFallback: { backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
   avatarInitiaal: { fontSize: 48, fontWeight: '700', color: '#fff' },
 
-  profielKop:   { alignItems: 'center', gap: 8, marginBottom: 12 },
+  profielKop:   { alignItems: 'center', gap: 6, marginBottom: 20 },
+  naamRij:      { flexDirection: 'row', alignItems: 'center' },
   naam:         { fontSize: 26, fontWeight: '700', color: COLORS.text, textAlign: 'center' },
   leeftijd:     { fontSize: 26, fontWeight: '400', color: '#C7C7CC' },
-  bio:          { fontSize: 15, color: COLORS.textLight, lineHeight: 22, textAlign: 'center', marginBottom: 20 },
 
   sterrenRij:   { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  scoreText:    { fontSize: 14, color: COLORS.textLight, marginLeft: 4 },
+  scoreText:    { fontSize: 13, color: COLORS.textLight, marginLeft: 4 },
 
   knoppen:      { marginBottom: 28 },
   knopPrimair:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: ORANJE, borderRadius: 14, paddingVertical: 14 },
@@ -301,15 +357,22 @@ const styles = StyleSheet.create({
   knopTekstWit: { fontSize: 16, fontWeight: '700', color: '#fff' },
   knopTekstSecundair: { fontSize: 16, fontWeight: '700', color: COLORS.secondary },
 
-  sectie:       { gap: 12 },
-  sectieHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sectie:       { gap: 10, marginBottom: 24 },
   sectieLabel:  { fontSize: 16, fontWeight: '700', color: COLORS.text },
-  gedeeldHint:  { fontSize: 13, fontWeight: '600', color: ORANJE },
-  chipsGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  chip:         { backgroundColor: '#F2F2F7', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
-  chipGedeeld:  { backgroundColor: '#FFF3EE', borderWidth: 1, borderColor: 'rgba(255,107,53,0.3)' },
-  chipTekst:    { fontSize: 14, fontWeight: '500', color: COLORS.text },
-  chipTekstGedeeld: { color: ORANJE },
+  bio:          { fontSize: 15, color: COLORS.textLight, lineHeight: 22 },
+  leegTekst:    { fontSize: 14, color: '#C7C7CC', fontStyle: 'italic' },
+
+  chipsGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip:         { backgroundColor: '#FFF3EE', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: 'rgba(255,107,53,0.2)' },
+  chipTekst:    { fontSize: 13, fontWeight: '600', color: ORANJE },
+
+  gedeeldBlok:  { backgroundColor: '#FFF8F5', borderRadius: 16, padding: 16, gap: 12, marginBottom: 24, borderWidth: 1, borderColor: 'rgba(255,107,53,0.15)' },
+  gedeeldHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  gedeeldTitel: { fontSize: 14, fontWeight: '700', color: ORANJE },
+  chipGedeeld:  { backgroundColor: ORANJE, borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14 },
+  chipTekstGedeeld: { fontSize: 13, fontWeight: '600', color: '#fff' },
+
+  lidSinds:     { fontSize: 13, color: '#C7C7CC', textAlign: 'center', marginTop: 8 },
 
   foutTekst:    { fontSize: 15, color: COLORS.textLight, textAlign: 'center' },
 })

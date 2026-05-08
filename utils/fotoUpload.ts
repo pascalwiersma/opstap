@@ -1,6 +1,15 @@
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../services/supabase';
 
+function base64NaarArrayBuffer(base64: string): ArrayBuffer {
+  const binair = atob(base64);
+  const bytes = new Uint8Array(binair.length);
+  for (let i = 0; i < binair.length; i++) {
+    bytes[i] = binair.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
 export async function kiesEnUploadFoto(pad: string): Promise<string | null> {
   const toestemming = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!toestemming.granted) return null;
@@ -10,13 +19,12 @@ export async function kiesEnUploadFoto(pad: string): Promise<string | null> {
     allowsEditing: true,
     aspect: [1, 1],
     quality: 0.7,
+    base64: true,
   });
 
-  if (resultaat.canceled || !resultaat.assets[0]) return null;
+  if (resultaat.canceled || !resultaat.assets[0]?.base64) return null;
 
-  const uri = resultaat.assets[0].uri;
-  const response = await fetch(uri);
-  const arrayBuffer = await response.arrayBuffer();
+  const arrayBuffer = base64NaarArrayBuffer(resultaat.assets[0].base64);
 
   const { error } = await supabase.storage
     .from('avatars')
