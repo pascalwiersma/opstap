@@ -3,7 +3,7 @@ import Mapbox from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../services/supabase';
 import { useVenues, VenuePin } from '../../hooks/useVenues';
@@ -100,6 +100,8 @@ export default function KaartScreen() {
   const slideAnim = useRef(new Animated.Value(CARD_HEIGHT + 20)).current;
   const [actieveFilters, setActieveFilters] = useState<Set<VenueTyp>>(new Set(ALLE_TYPES));
   const [meldingenOngelezen, setMeldingenOngelezen] = useState(0);
+  const [zoekActief, setZoekActief] = useState(false);
+  const [zoekterm, setZoekterm] = useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -191,6 +193,24 @@ export default function KaartScreen() {
     if (status !== 'granted') return;
     const pos = await Location.getCurrentPositionAsync({});
     cameraRef.current?.setCamera({ centerCoordinate: [pos.coords.longitude, pos.coords.latitude], zoomLevel: 15, animationDuration: 500 });
+  }
+
+  const zoekResultaten = zoekterm.trim().length > 0
+    ? venues.filter((v) =>
+        v.name.toLowerCase().includes(zoekterm.toLowerCase()) ||
+        (v.address ?? '').toLowerCase().includes(zoekterm.toLowerCase())
+      )
+    : venues;
+
+  function kiesZoekResultaat(venue: VenuePin) {
+    setZoekActief(false);
+    setZoekterm('');
+    openVenueCard(venue);
+    cameraRef.current?.setCamera({
+      centerCoordinate: [Number(venue.lng), Number(venue.lat)],
+      zoomLevel: 17,
+      animationDuration: 600,
+    });
   }
 
   const kleur = VENUE_KLEUREN[selectedVenue?.type ?? ''] ?? '#1A73E8';
@@ -320,12 +340,66 @@ export default function KaartScreen() {
         ) : null}
       </Pressable>
 
+      <Pressable
+        style={[styles.zoekKnop, { top: top + 12 }]}
+        onPress={() => setZoekActief(true)}
+      >
+        <Ionicons name="search" size={22} color="#1A1A1A" />
+      </Pressable>
+
+      {zoekActief && (
+        <View style={[styles.zoekOverlay, { top: top + 8 }]}>
+          <View style={styles.zoekBalkRij}>
+            <Ionicons name="search" size={16} color="#888" />
+            <TextInput
+              style={styles.zoekInput}
+              placeholder="Zoek café, bar of club…"
+              placeholderTextColor="#999"
+              autoFocus
+              value={zoekterm}
+              onChangeText={setZoekterm}
+              returnKeyType="search"
+            />
+            <Pressable onPress={() => { setZoekActief(false); setZoekterm(''); }} hitSlop={8}>
+              <Ionicons name="close" size={20} color="#888" />
+            </Pressable>
+          </View>
+
+          <ScrollView keyboardShouldPersistTaps="handled" style={styles.zoekLijst}>
+            {zoekResultaten.length === 0 ? (
+              <Text style={styles.zoekLeeg}>Geen resultaten voor "{zoekterm}"</Text>
+            ) : (
+              zoekResultaten.map((venue) => {
+                const vKleur = VENUE_KLEUREN[venue.type ?? ''] ?? '#888';
+                const vIcon = VENUE_ICONS[venue.type ?? ''] ?? 'location-outline';
+                return (
+                  <Pressable
+                    key={venue.id}
+                    style={({ pressed }) => [styles.zoekRij, pressed && { opacity: 0.6 }]}
+                    onPress={() => kiesZoekResultaat(venue)}
+                  >
+                    <View style={[styles.zoekIcoonRond, { backgroundColor: vKleur }]}>
+                      <Ionicons name={vIcon} size={16} color="#fff" />
+                    </View>
+                    <View style={styles.zoekRijInfo}>
+                      <Text style={styles.zoekRijNaam} numberOfLines={1}>{venue.name}</Text>
+                      <Text style={styles.zoekRijAdres} numberOfLines={1}>{venue.address}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
+                  </Pressable>
+                );
+              })
+            )}
+          </ScrollView>
+        </View>
+      )}
+
       <Pressable style={[styles.locatieKnop, { bottom: bottom }]} onPress={centreerOpLocatie}>
         <Ionicons name="navigate" size={22} color="#1A73E8" />
       </Pressable>
 
       {selectedVenue && (
-        <Animated.View style={[styles.venueCard, { bottom: bottom + 16, transform: [{ translateY: slideAnim }] }]}>
+        <Animated.View style={[styles.venueCard, { bottom: bottom, transform: [{ translateY: slideAnim }] }]}>
           <View style={[styles.cardFoto, { backgroundColor: kleur }]}>
             <Ionicons name={icon} size={34} color="#fff" />
             <View style={styles.hartKnop}>
@@ -491,4 +565,73 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   meldingBadgeTekst: { fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
+
+  zoekKnop: {
+    position: 'absolute',
+    right: 72,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+
+  zoekOverlay: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    maxHeight: 380,
+    overflow: 'hidden',
+  },
+
+  zoekBalkRij: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+  },
+
+  zoekInput: { flex: 1, fontSize: 16, color: '#1A1A1A' },
+
+  zoekLijst: { maxHeight: 300 },
+
+  zoekLeeg: { padding: 20, textAlign: 'center', color: '#999', fontSize: 14 },
+
+  zoekRij: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
+  },
+
+  zoekIcoonRond: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  zoekRijInfo: { flex: 1 },
+  zoekRijNaam: { fontSize: 15, fontWeight: '600', color: '#1A1A1A' },
+  zoekRijAdres: { fontSize: 12, color: '#888', marginTop: 1 },
 });

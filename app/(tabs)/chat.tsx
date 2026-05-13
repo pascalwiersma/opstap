@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -6,16 +8,14 @@ import {
   SectionList,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../services/supabase';
-import { streamClient } from '../../services/stream';
-import { verbindStream, getOrCreateDm } from '../../services/dm';
 import { COLORS } from '../../constants/colors';
+import { getOrCreateDm, verbindStream } from '../../services/dm';
+import { streamClient } from '../../services/stream';
+import { supabase } from '../../services/supabase';
 import { gisterenKalenderdagAmsterdam, kalenderdagAmsterdam } from '../../utils/nlDate';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -95,11 +95,12 @@ function DatumLabel({ datum }: { datum: string }) {
 // ── Hoofd component ───────────────────────────────────────────────────────────
 
 export default function ChatScreen() {
-  const { top } = useSafeAreaInsets()
+  const { top, bottom } = useSafeAreaInsets()
   const [loading, setLoading] = useState(true)
   const [groepsChats, setGroepsChats] = useState<GroepsChat[]>([])
   const [vriendChats, setVriendChats] = useState<VriendChat[]>([])
   const [dmBezig, setDmBezig] = useState<string | null>(null)
+  const [zoekterm, setZoekterm] = useState('')
 
   useFocusEffect(
     useCallback(() => {
@@ -116,7 +117,7 @@ export default function ChatScreen() {
     setLoading(false)
 
     if (groeps && groeps.length > 0) {
-      laadStreamPreviews(user.id, groeps).catch(() => {})
+      laadStreamPreviews(user.id, groeps).catch(() => { })
     }
   }
 
@@ -236,9 +237,13 @@ export default function ChatScreen() {
 
   const leeg = groepsChats.length === 0 && vriendChats.length === 0
 
+  const gefilterd = zoekterm.trim()
+    ? vriendChats.filter(v => v.anderePersoon.naam.toLowerCase().includes(zoekterm.toLowerCase()))
+    : vriendChats
+
   const secties = [
     ...(groepsChats.length > 0 ? [{ title: 'Groepsavonden', data: groepsChats as ChatItem[] }] : []),
-    ...(vriendChats.length > 0 ? [{ title: 'Vrienden', data: vriendChats as ChatItem[] }] : []),
+    ...(gefilterd.length > 0 ? [{ title: 'Vrienden', data: gefilterd as ChatItem[] }] : []),
   ]
 
   async function openVriendChat(item: VriendChat) {
@@ -268,6 +273,21 @@ export default function ChatScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitel}>Chats</Text>
       </View>
+
+      {vriendChats.length > 0 && (
+        <View style={styles.zoekWrapper}>
+          <Ionicons name="search" size={16} color={COLORS.textLight} />
+          <TextInput
+            style={styles.zoekInput}
+            placeholder="Zoek vrienden..."
+            placeholderTextColor={COLORS.textLight}
+            value={zoekterm}
+            onChangeText={setZoekterm}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+        </View>
+      )}
 
       {leeg ? (
         <View style={styles.leegBlok}>
@@ -335,37 +355,49 @@ export default function ChatScreen() {
           }}
         />
       )}
+
+      <Pressable
+        style={[styles.fab, { bottom: bottom + 8 }]}
+        onPress={() => router.push('/(tabs)/ontdek')}
+      >
+        <Ionicons name="person-add" size={22} color="#fff" />
+      </Pressable>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  wrapper:          { flex: 1, backgroundColor: '#fff' },
-  midden:           { flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  header:           { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16 },
-  headerTitel:      { fontSize: 28, fontWeight: '700', color: COLORS.text },
+  wrapper: { flex: 1, backgroundColor: '#fff' },
+  midden: { flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16 },
+  headerTitel: { fontSize: 28, fontWeight: '700', color: COLORS.text },
 
-  lijst:            { paddingHorizontal: 16, paddingBottom: 24 },
-  sectieKop:        { fontSize: 13, fontWeight: '600', color: COLORS.textLight, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 20, marginBottom: 4 },
-  scheidslijn:      { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,0,0,0.08)', marginLeft: 68 },
+  lijst: { paddingHorizontal: 16, paddingBottom: 24 },
+  sectieKop: { fontSize: 13, fontWeight: '600', color: COLORS.textLight, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 20, marginBottom: 4 },
+  scheidslijn: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,0,0,0.08)', marginLeft: 68 },
 
-  rij:              { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 12 },
-  rijGedrukt:       { opacity: 0.6 },
-  rijInfo:          { flex: 1, gap: 3 },
-  naam:             { fontSize: 16, fontWeight: '600', color: COLORS.text },
-  sub:              { fontSize: 13, color: COLORS.textLight },
-  preview:          { fontSize: 13, color: COLORS.textLight, opacity: 0.7 },
+  rij: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 12 },
+  rijGedrukt: { opacity: 0.6 },
+  rijInfo: { flex: 1, gap: 3 },
+  naam: { fontSize: 16, fontWeight: '600', color: COLORS.text },
+  sub: { fontSize: 13, color: COLORS.textLight },
+  preview: { fontSize: 13, color: COLORS.textLight, opacity: 0.7 },
 
-  avatarGroep:      { flexDirection: 'row', alignItems: 'center' },
-  avatarRing:       { borderWidth: 2, borderColor: '#fff', borderRadius: 24 },
-  avatarFallback:   { backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
-  avatarInitiaal:   { fontWeight: '700', color: '#fff' },
-  avatarExtra:      { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center' },
+  avatarGroep: { flexDirection: 'row', alignItems: 'center' },
+  avatarRing: { borderWidth: 2, borderColor: '#fff', borderRadius: 24 },
+  avatarFallback: { backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
+  avatarInitiaal: { fontWeight: '700', color: '#fff' },
+  avatarExtra: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F2F2F7', alignItems: 'center', justifyContent: 'center' },
   avatarExtraTekst: { fontSize: 12, fontWeight: '700', color: COLORS.textLight },
 
-  datumTekst:       { color: COLORS.textLight },
+  datumTekst: { color: COLORS.textLight },
 
-  leegBlok:         { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32 },
-  leegTitel:        { fontSize: 20, fontWeight: '700', color: COLORS.text },
-  leegSubtitel:     { fontSize: 14, color: COLORS.textLight, textAlign: 'center', lineHeight: 21 },
+  leegBlok: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32 },
+  leegTitel: { fontSize: 20, fontWeight: '700', color: COLORS.text },
+  leegSubtitel: { fontSize: 14, color: COLORS.textLight, textAlign: 'center', lineHeight: 21 },
+
+  zoekWrapper: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 8, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: '#F2F2F7', borderRadius: 12, gap: 8 },
+  zoekInput: { flex: 1, fontSize: 15, color: COLORS.text },
+
+  fab: { position: 'absolute', right: 20, width: 52, height: 52, borderRadius: 26, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 4 },
 })

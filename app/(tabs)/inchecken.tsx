@@ -121,6 +121,7 @@ export default function IncheckenScreen() {
   const [stad, setStad] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
   const [, setClock] = useState(0);
   const [, setTick1s] = useState(0);
   const [uitslag, setUitslag] = useState<MatchUitslag>({ fase: 'laden' });
@@ -148,14 +149,16 @@ export default function IncheckenScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || weg) return;
 
-      const [eigenResult, telResult] = await Promise.all([
+      const [eigenResult, telResult, profielResult] = await Promise.all([
         supabase.from('check_ins').select('id, status').eq('user_id', user.id).eq('date', today).maybeSingle(),
         supabase.from('check_ins').select('*', { count: 'exact', head: true }).eq('date', today).eq('status', 'active'),
+        supabase.from('profiles').select('identity_verified').eq('id', user.id).single(),
       ]);
 
       if (weg) return;
       setCheckIn(eigenResult.data as CheckIn | null);
       setCount(telResult.count ?? 0);
+      setIsVerified(profielResult.data?.identity_verified ?? false);
       setLoading(false);
     }
 
@@ -541,15 +544,28 @@ export default function IncheckenScreen() {
               </Text>
             </View>
 
-            <Pressable
-              style={[styles.incheckenKnop, busy && styles.knopDisabled]}
-              onPress={inchecken}
-              disabled={busy}
-            >
-              {busy
-                ? <ActivityIndicator color="#fff" />
-                : <Text style={styles.incheckenTekst}>Ik ga vanavond uit</Text>}
-            </Pressable>
+            {!isVerified ? (
+              <View style={styles.verificatieKaart}>
+                <Ionicons name="shield-checkmark-outline" size={36} color={COLORS.primary} />
+                <Text style={styles.verificatieTitel}>Verificatie vereist</Text>
+                <Text style={styles.verificatieTekst}>
+                  Om in te checken moet je eerst je identiteit verifiëren. Dit duurt maar een minuutje.
+                </Text>
+                <Pressable style={styles.incheckenKnop} onPress={() => router.push('/verificatie')}>
+                  <Text style={styles.incheckenTekst}>Identiteit verifiëren</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                style={[styles.incheckenKnop, busy && styles.knopDisabled]}
+                onPress={inchecken}
+                disabled={busy}
+              >
+                {busy
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.incheckenTekst}>Ik ga vanavond uit</Text>}
+              </Pressable>
+            )}
           </View>
         )}
       </View>
@@ -573,6 +589,19 @@ const styles = StyleSheet.create({
   incheckenKnop:  { width: '100%', paddingVertical: 18, borderRadius: 16, backgroundColor: ORANJE, alignItems: 'center' },
   knopDisabled:   { opacity: 0.6 },
   incheckenTekst: { fontSize: 17, fontWeight: '700', color: '#fff' },
+
+  verificatieKaart: {
+    width: '100%',
+    padding: 24,
+    borderRadius: 16,
+    backgroundColor: '#FFF5EF',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,53,0.25)',
+    alignItems: 'center',
+    gap: 12,
+  },
+  verificatieTitel: { fontSize: 18, fontWeight: '700', color: COLORS.text, textAlign: 'center' },
+  verificatieTekst: { fontSize: 15, color: COLORS.textLight, textAlign: 'center', lineHeight: 22 },
 
   geslotenCard:   {
     width: '100%',

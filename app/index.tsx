@@ -4,7 +4,7 @@ import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { supabase } from '../services/supabase';
 
-type Bestemming = '/(auth)/register' | '/onboarding' | '/verificatie' | '/(tabs)/kaart'
+type Bestemming = '/(auth)/register' | '/onboarding' | '/(tabs)/kaart'
 
 export default function Index() {
   const [bestemming, setBestemming] = useState<Bestemming | null>(null);
@@ -16,14 +16,12 @@ export default function Index() {
 
       const { data } = await supabase
         .from('profiles')
-        .select('onboarding_completed_at, identity_verified')
+        .select('onboarding_completed_at')
         .eq('id', session.user.id)
         .single();
 
       if (!data?.onboarding_completed_at) {
         setBestemming('/onboarding');
-      } else if (!data?.identity_verified) {
-        setBestemming('/verificatie');
       } else {
         setBestemming('/(tabs)/kaart');
       }

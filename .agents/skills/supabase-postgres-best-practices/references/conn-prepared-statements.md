@@ -1,3 +1,4 @@
+
 ---
 title: Use Prepared Statements Correctly with Pooling
 impact: HIGH

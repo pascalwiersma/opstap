@@ -1,10 +1,10 @@
-import { Alert } from 'react-native';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { supabase } from '../services/supabase';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/colors';
+import { supabase } from '../services/supabase';
 
 const PAARS = COLORS.secondary;
 
@@ -112,26 +112,38 @@ export default function InstellingenScreen() {
             </View>
           </View>
         ))}
+
+        <View style={styles.footer}>
+          <Text style={styles.footerVersie}>
+            Versie {Constants.expoConfig?.version ?? '1.0.0'} ({Constants.expoConfig?.ios?.buildNumber ?? '1'})
+          </Text>
+          <Text style={styles.footerGemaakt}>Met ❤️ gemaakt in Groningen</Text>
+          <Text style={styles.footerGemaakt}>door Pascal Services.</Text>
+        </View>
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper:        { flex: 1, backgroundColor: '#F2F2F7' },
-  header:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16 },
-  terugKnop:      { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  titel:          { fontSize: 17, fontWeight: '700', color: COLORS.text },
+  wrapper: { flex: 1, backgroundColor: '#F2F2F7' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16 },
+  terugKnop: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  titel: { fontSize: 17, fontWeight: '700', color: COLORS.text },
 
-  inhoud:         { paddingHorizontal: 16, gap: 24 },
-  sectie:         { gap: 8 },
-  sectieKop:      { fontSize: 13, fontWeight: '600', color: COLORS.textLight, textTransform: 'uppercase', letterSpacing: 0.6, marginLeft: 4 },
-  kaart:          { backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden' },
+  inhoud: { paddingHorizontal: 16, gap: 24 },
+  sectie: { gap: 8 },
+  sectieKop: { fontSize: 13, fontWeight: '600', color: COLORS.textLight, textTransform: 'uppercase', letterSpacing: 0.6, marginLeft: 4 },
+  kaart: { backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden' },
   scheidingslijn: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,0,0,0.08)', marginLeft: 60 },
 
-  rij:            { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
-  icoonRond:      { width: 32, height: 32, borderRadius: 8, backgroundColor: '#EDE9FF', alignItems: 'center', justifyContent: 'center' },
-  icoonRondRood:  { backgroundColor: '#FFF0F0' },
-  rijLabel:       { flex: 1, fontSize: 16, color: COLORS.text },
-  rijLabelRood:   { color: '#E53E3E' },
+  rij: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
+  icoonRond: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#EDE9FF', alignItems: 'center', justifyContent: 'center' },
+  icoonRondRood: { backgroundColor: '#FFF0F0' },
+  rijLabel: { flex: 1, fontSize: 16, color: COLORS.text },
+  rijLabelRood: { color: '#E53E3E' },
+
+  footer: { alignItems: 'center', gap: 4, paddingTop: 8 },
+  footerVersie: { fontSize: 13, color: COLORS.textLight },
+  footerGemaakt: { fontSize: 12, color: '#C7C7CC' },
 });
