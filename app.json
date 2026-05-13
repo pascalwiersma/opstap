@@ -42,6 +42,14 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 120
+        }
+      ],
       "expo-secure-store",
       "@rnmapbox/maps",
       [

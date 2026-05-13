@@ -18,10 +18,9 @@ import { COLORS } from '../../constants/colors';
 const ORANJE = COLORS.primary;
 
 const INTERESSE_EMOJI: Record<string, string> = {
-  uitgaan: '🕺', spelletjes: '🎲', evenement: '🎪', huisfeest: '🎵',
-  feestje: '🎉', sport: '⚽', muziek: '🎸', film: '🎬',
-  kunst: '🎨', reizen: '✈️', koken: '🍳', natuur: '🌿',
-  gaming: '🎮', yoga: '🧘', fitness: '💪',
+  'Housemuziek': '🎧', 'R&B': '🎵', 'Latin': '💃', 'Rock': '🎸', 'Pop': '🎤',
+  'Terrasjes': '☀️', 'Pubquiz': '🧠', 'Cocktailbars': '🍹', 'Sportcafes': '⚽', 'Clubbing': '🕺',
+  'Jazz': '🎷', 'Techno': '🔊', 'Indie': '🎼', 'Karaoke': '🎙️', 'Livemuziek': '🎶',
 };
 
 function interesseEmoji(i: string) { return INTERESSE_EMOJI[i.toLowerCase()] ?? '✨' }

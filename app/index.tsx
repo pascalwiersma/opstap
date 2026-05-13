@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { supabase } from '../services/supabase';
 
@@ -33,7 +33,8 @@ export default function Index() {
   if (!bestemming) {
     return (
       <View style={styles.midden}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Image source={require('../assets/icon.png')} style={styles.logo} resizeMode="contain" />
+        <ActivityIndicator size="small" color={COLORS.primary} style={styles.spinner} />
       </View>
     );
   }
@@ -43,4 +44,6 @@ export default function Index() {
 
 const styles = StyleSheet.create({
   midden: { flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  logo: { width: 72, height: 72 },
+  spinner: { marginTop: 16 },
 });
