@@ -43,7 +43,7 @@ export default function RootLayout() {
         <Stack.Screen name="chatroom/[channelId]" options={{ headerShown: false }} />
         <Stack.Screen name="event/aanmaken" options={{ title: 'Event aanmaken' }} />
         <Stack.Screen name="event/[id]" options={{ title: 'Event' }} />
-        <Stack.Screen name="venue/[id]" options={{ title: 'Venue' }} />
+        <Stack.Screen name="venue/[id]" options={{ headerShown: false }} />
       </Stack>
     </GestureHandlerRootView>
   );

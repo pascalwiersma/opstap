@@ -400,21 +400,23 @@ export default function KaartScreen() {
 
       {selectedVenue && (
         <Animated.View style={[styles.venueCard, { bottom: bottom, transform: [{ translateY: slideAnim }] }]}>
-          <View style={[styles.cardFoto, { backgroundColor: kleur }]}>
-            <Ionicons name={icon} size={34} color="#fff" />
-            <View style={styles.hartKnop}>
-              <Ionicons name="heart-outline" size={18} color="#fff" />
+          <Pressable
+            style={styles.cardDrukbaar}
+            onPress={() => router.push(`/venue/${selectedVenue.id}` as never)}
+          >
+            <View style={[styles.cardFoto, { backgroundColor: kleur }]}>
+              <Ionicons name={icon} size={34} color="#fff" />
             </View>
-          </View>
-          <View style={styles.cardInfo}>
-            <View style={styles.cardBadgeRij}>
-              <View style={[styles.badge, { backgroundColor: kleur }]}>
-                <Text style={styles.badgeTekst}>{label}</Text>
+            <View style={styles.cardInfo}>
+              <View style={styles.cardBadgeRij}>
+                <View style={[styles.badge, { backgroundColor: kleur }]}>
+                  <Text style={styles.badgeTekst}>{label}</Text>
+                </View>
               </View>
+              <Text style={styles.cardNaam} numberOfLines={1}>{selectedVenue.name}</Text>
+              <Text style={styles.cardAdres} numberOfLines={1}>{selectedVenue.address}</Text>
             </View>
-            <Text style={styles.cardNaam} numberOfLines={1}>{selectedVenue.name}</Text>
-            <Text style={styles.cardAdres} numberOfLines={1}>{selectedVenue.address}</Text>
-          </View>
+          </Pressable>
           <Pressable style={styles.sluitKnop} onPress={sluitVenueCard}>
             <Ionicons name="close" size={18} color="#999" />
           </Pressable>
@@ -507,6 +509,12 @@ const styles = StyleSheet.create({
   badgeTekst: { color: '#fff', fontSize: 11, fontWeight: '600' },
   cardNaam: { fontSize: 17, fontWeight: '700', color: '#1A1A1A' },
   cardAdres: { fontSize: 13, color: '#888' },
+
+  cardDrukbaar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
 
   sluitKnop: {
     padding: 12,
