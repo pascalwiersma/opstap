@@ -15,7 +15,7 @@ const VRAGEN = [
       },
       {
         vraag: 'Hoe verwijder ik mijn account?',
-        antwoord: 'Stuur een e-mail naar support@opstap.app met je telefoonnummer. We verwijderen je account binnen 5 werkdagen.',
+        antwoord: 'Stuur een e-mail naar opstap@pascal.services met je telefoonnummer. We verwijderen je account binnen 5 werkdagen.',
       },
     ],
   },
@@ -111,7 +111,7 @@ export default function HelpcentrumScreen() {
           <Text style={styles.contactTitel}>Nog vragen?</Text>
           <Text style={styles.contactTekst}>
             Stuur een e-mail naar{' '}
-            <Text style={styles.contactLink}>support@opstap.app</Text>
+            <Text style={styles.contactLink}>opstap@pascal.services</Text>
           </Text>
         </View>
       </ScrollView>

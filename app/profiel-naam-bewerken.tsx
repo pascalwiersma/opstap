@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -11,11 +13,9 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { GeboortedatumKiezer } from '../components/GeboortedatumKiezer';
-import { supabase } from '../services/supabase';
 import { COLORS } from '../constants/colors';
+import { supabase } from '../services/supabase';
 import {
   defaultGeboorteDatum,
   formatGeboorteDb,
@@ -145,7 +145,7 @@ export default function ProfielNaamBewerkScreen() {
                 <Text style={styles.leeftijd}>{leeftijdUitGeboortedatum(geboorteDatum)} jaar</Text>
                 <Text style={styles.vergrendeldTekst}>
                   Geboortedatum kan niet worden gewijzigd. Neem contact op via{' '}
-                  <Text style={styles.vergrendeldLink}>support@opstap.app</Text>.
+                  <Text style={styles.vergrendeldLink}>opstap@pascal.services</Text>.
                 </Text>
               </>
             ) : (
@@ -176,19 +176,19 @@ export default function ProfielNaamBewerkScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrapper:     { flex: 1, backgroundColor: '#F2F2F7' },
-  header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16 },
-  terugKnop:   { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  titel:       { fontSize: 17, fontWeight: '700', color: COLORS.text },
-  sectie:      { paddingHorizontal: 16, gap: 12 },
-  veld:        { backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14, gap: 6 },
-  label:       { fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', letterSpacing: 0.6 },
-  leeftijd:    { fontSize: 14, fontWeight: '600', color: COLORS.primary, marginBottom: 4 },
-  fout:             { fontSize: 13, color: '#C53030', marginTop: 4 },
+  wrapper: { flex: 1, backgroundColor: '#F2F2F7' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16 },
+  terugKnop: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  titel: { fontSize: 17, fontWeight: '700', color: COLORS.text },
+  sectie: { paddingHorizontal: 16, gap: 12 },
+  veld: { backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14, gap: 6 },
+  label: { fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', letterSpacing: 0.6 },
+  leeftijd: { fontSize: 14, fontWeight: '600', color: COLORS.primary, marginBottom: 4 },
+  fout: { fontSize: 13, color: '#C53030', marginTop: 4 },
   vergrendeldTekst: { fontSize: 13, color: COLORS.textLight, lineHeight: 19 },
-  vergrendeldLink:  { color: COLORS.primary },
-  input:       { fontSize: 16, color: COLORS.text, padding: 0 },
+  vergrendeldLink: { color: COLORS.primary },
+  input: { fontSize: 16, color: COLORS.text, padding: 0 },
   opslaanKnop: { backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginTop: 4 },
-  disabled:    { opacity: 0.6 },
+  disabled: { opacity: 0.6 },
   opslaanTekst: { fontSize: 17, fontWeight: '700', color: '#fff' },
 });
