@@ -52,6 +52,7 @@ export default function InstellingenScreen() {
       titel: 'Account',
       rijen: [
         { label: 'Profiel bewerken', icoon: 'person-outline', actie: () => router.push('/profiel-bewerken') },
+        { label: 'Persoonlijke gegevens', icoon: 'id-card-outline', actie: () => router.push('/profiel-naam-bewerken') },
         { label: 'Favorieten', icoon: 'heart-outline', actie: () => router.push('/favorieten') },
         { label: 'Meldingen', icoon: 'notifications-outline', actie: () => router.push('/meldingen') },
       ],

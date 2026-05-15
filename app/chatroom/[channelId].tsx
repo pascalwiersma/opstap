@@ -20,7 +20,10 @@ import {
   MessageComposer,
   MessageList,
   OverlayProvider,
+  Streami18n,
 } from 'stream-chat-expo';
+
+const i18nNL = new Streami18n({ language: 'nl' });
 import { COLORS } from '../../constants/colors';
 import { getOrCreateDm, verbindStream } from '../../services/dm';
 import { streamClient } from '../../services/stream';
@@ -104,6 +107,7 @@ export default function ChatroomScreen() {
   const [loading, setLoading] = useState(true)
   const [fout, setFout] = useState<string | null>(null)
   const [ledenOpen, setLedenOpen] = useState(false)
+  const [actiemenuOpen, setActiemenuOpen] = useState(false)
   const [leden, setLeden] = useState<Lid[]>([])
   const [dmBezig, setDmBezig] = useState(false)
   const mijnUserIdRef = useRef<string | null>(null)
@@ -184,35 +188,19 @@ export default function ChatroomScreen() {
 
   function openActiemenu() {
     if (!anderePersoonRef.current) return
-    const naam = anderePersoonRef.current.naam
-    Alert.alert(naam, undefined, [
-      {
-        text: 'Rapporteer',
-        style: 'destructive',
-        onPress: () => Alert.alert(
-          'Rapporteer',
-          `Waarom wil je ${naam} rapporteren?`,
-          [
-            { text: 'Ongepast gedrag', onPress: () => verstuurRapport('ongepast_gedrag') },
-            { text: 'Spam', onPress: () => verstuurRapport('spam') },
-            { text: 'Annuleer', style: 'cancel' },
-          ],
-        ),
-      },
-      {
-        text: 'Blokkeer',
-        style: 'destructive',
-        onPress: () => Alert.alert(
-          'Blokkeer',
-          `Weet je zeker dat je ${naam} wilt blokkeren? Je ziet dan elkaars berichten niet meer.`,
-          [
-            { text: 'Annuleer', style: 'cancel' },
-            { text: 'Blokkeer', style: 'destructive', onPress: voerBlokkeringUit },
-          ],
-        ),
-      },
-      { text: 'Annuleer', style: 'cancel' },
-    ])
+    setActiemenuOpen(true)
+  }
+
+  function bevestigBlokkeer() {
+    const naam = anderePersoonRef.current?.naam ?? ''
+    Alert.alert(
+      'Blokkeer',
+      `Weet je zeker dat je ${naam} wilt blokkeren? Je ziet dan elkaars berichten niet meer.`,
+      [
+        { text: 'Annuleer', style: 'cancel' },
+        { text: 'Blokkeer', style: 'destructive', onPress: voerBlokkeringUit },
+      ],
+    )
   }
 
   async function verstuurRapport(reden: string) {
@@ -224,6 +212,7 @@ export default function ChatroomScreen() {
     })
     Alert.alert('Gemeld', 'We nemen je melding in behandeling. Dank je.')
   }
+
 
   async function voerBlokkeringUit() {
     if (!anderePersoonRef.current || !mijnUserIdRef.current) return
@@ -266,7 +255,7 @@ export default function ChatroomScreen() {
   const aantalLeden = Object.keys(kanaal.state.members ?? {}).length
 
   return (
-    <OverlayProvider>
+    <OverlayProvider i18nInstance={i18nNL}>
       <View style={[styles.wrapper, { paddingTop: top }]}>
         <View style={styles.header}>
           <Pressable style={styles.terugRond} onPress={() => router.back()} hitSlop={8}>
@@ -292,20 +281,57 @@ export default function ChatroomScreen() {
               <Ionicons name="people-outline" size={22} color={COLORS.secondary} />
             </Pressable>
           ) : (
-            <Pressable style={styles.ledenKnop} onPress={openActiemenu} hitSlop={8}>
-              <Ionicons name="ellipsis-horizontal" size={22} color={COLORS.secondary} />
-            </Pressable>
+            <View style={styles.actieKnopWrapper}>
+              <Pressable style={styles.ledenKnop} onPress={openActiemenu} hitSlop={8}>
+                <Ionicons name="ellipsis-horizontal" size={22} color={COLORS.secondary} />
+              </Pressable>
+              {actiemenuOpen && (
+                <View style={styles.actieDropdown}>
+                  <Pressable
+                    style={({ pressed }) => [styles.actieDropdownRij, pressed && { opacity: 0.6 }]}
+                    onPress={() => {
+                      setActiemenuOpen(false)
+                      const naam = anderePersoonRef.current?.naam ?? ''
+                      Alert.alert(
+                        'Rapporteer',
+                        `Waarom wil je ${naam} rapporteren?`,
+                        [
+                          { text: 'Ongepast gedrag', onPress: () => verstuurRapport('ongepast_gedrag') },
+                          { text: 'Spam', onPress: () => verstuurRapport('spam') },
+                          { text: 'Annuleer', style: 'cancel' },
+                        ],
+                      )
+                    }}
+                  >
+                    <Ionicons name="flag-outline" size={16} color="#E53E3E" />
+                    <Text style={[styles.actieDropdownTekst, { color: '#E53E3E' }]}>Rapporteer</Text>
+                  </Pressable>
+                  <View style={styles.actieDropdownDivider} />
+                  <Pressable
+                    style={({ pressed }) => [styles.actieDropdownRij, pressed && { opacity: 0.6 }]}
+                    onPress={() => { setActiemenuOpen(false); bevestigBlokkeer() }}
+                  >
+                    <Ionicons name="ban-outline" size={16} color="#E53E3E" />
+                    <Text style={[styles.actieDropdownTekst, { color: '#E53E3E' }]}>Blokkeer</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
           )}
         </View>
 
         <View style={{ flex: 1, paddingBottom: Math.max(0, bottom - 50) }}>
-          <Chat client={streamClient}>
+          <Chat client={streamClient} i18nInstance={i18nNL}>
             <Channel channel={kanaal} keyboardVerticalOffset={top + 56}>
               <MessageList />
               <MessageComposer />
             </Channel>
           </Chat>
         </View>
+
+        {actiemenuOpen && (
+          <Pressable style={styles.actieBackdrop} onPress={() => setActiemenuOpen(false)} />
+        )}
 
         {isGroepsChat && (
           <LedenModal
@@ -358,4 +384,25 @@ const styles = StyleSheet.create({
 
   dmOverlay: { position: 'absolute', bottom: 40, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(0,0,0,0.75)', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 24 },
   dmOverlayTekst: { fontSize: 14, color: '#fff', fontWeight: '600' },
+
+  actieKnopWrapper: { position: 'relative' },
+  actieBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10 },
+  actieDropdown: {
+    position: 'absolute',
+    top: 48,
+    right: 0,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    paddingVertical: 6,
+    minWidth: 160,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 8,
+    zIndex: 20,
+  },
+  actieDropdownRij: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
+  actieDropdownTekst: { fontSize: 15, fontWeight: '500' },
+  actieDropdownDivider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,0,0,0.08)', marginHorizontal: 14 },
 })

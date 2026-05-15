@@ -97,13 +97,19 @@ function processLayer(layer: MapLayer): MapLayer {
   return layer;
 }
 
+const FALLBACK_STYLE_URL = 'mapbox://styles/mapbox/light-v11';
+let cachedStyleJSON: string | null = null;
+
 async function fetchStyle(): Promise<string> {
+  if (cachedStyleJSON) return cachedStyleJSON;
   const res = await fetch(`https://api.mapbox.com/styles/v1/mapbox/light-v11?access_token=${TOKEN}`);
+  if (!res.ok) throw new Error(`Mapbox stijl: ${res.status}`);
   const style = await res.json();
   style.layers = (style.layers as MapLayer[])
     .filter((l) => l.type !== 'symbol' || PLAATSNAAM_TOKENS.some((t) => l.id.includes(t)))
     .map(processLayer);
-  return JSON.stringify(style);
+  cachedStyleJSON = JSON.stringify(style);
+  return cachedStyleJSON;
 }
 
 const CARD_HEIGHT = 120;
@@ -118,7 +124,7 @@ function formatDateRange(start: string, end: string): string {
 type VenueTyp = typeof ALLE_TYPES[number];
 
 export default function KaartScreen() {
-  const [styleJSON, setStyleJSON] = useState<string | null>(null);
+  const [styleJSON, setStyleJSON] = useState<string | null>(cachedStyleJSON);
   const [locatie, setLocatie] = useState<[number, number] | null>(null);
   const [selectedVenue, setSelectedVenue] = useState<VenuePin | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<CityEventPin | null>(null);
@@ -139,6 +145,13 @@ export default function KaartScreen() {
   const [meldingenOngelezen, setMeldingenOngelezen] = useState(0);
   const [zoekActief, setZoekActief] = useState(false);
   const [zoekterm, setZoekterm] = useState('');
+  const [focusLocatie, setFocusLocatie] = useState({ stad: 'Groningen', provincie: 'Groningen', land: 'Nederland' });
+  const [kaartZoom, setKaartZoom] = useState(13);
+  const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  type LocatieResultaat = { id: string; naam: string; adres: string; lng: number; lat: number };
+  const [locatieResultaten, setLocatieResultaten] = useState<LocatieResultaat[]>([]);
+  const locatieZoekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -209,7 +222,9 @@ export default function KaartScreen() {
   };
 
   useEffect(() => {
-    fetchStyle().then(setStyleJSON).catch(console.error);
+    if (!cachedStyleJSON) {
+      fetchStyle().then(setStyleJSON).catch(() => setStyleJSON('__fallback__'));
+    }
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
@@ -301,6 +316,60 @@ export default function KaartScreen() {
     cameraRef.current?.setCamera({ centerCoordinate: [pos.coords.longitude, pos.coords.latitude], zoomLevel: 15, animationDuration: 500 });
   }
 
+  function handleCameraChanged(state: { properties: { zoom: number } }) {
+    setKaartZoom(state.properties.zoom);
+  }
+
+  function handleMapIdle(state: { properties: { center: GeoJSON.Position; zoom: number } }) {
+    const center = state.properties.center;
+    const lng = center[0];
+    const lat = center[1];
+    if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
+    geocodeTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+        const r = results[0];
+        if (r) {
+          setFocusLocatie({
+            stad: r.city ?? r.subregion ?? r.name ?? 'Onbekend',
+            provincie: r.region ?? '',
+            land: r.country ?? '',
+          });
+        }
+      } catch { /* silent */ }
+    }, 300);
+  }
+
+  useEffect(() => {
+    const term = zoekterm.trim();
+    if (term.length < 2) { setLocatieResultaten([]); return; }
+    if (locatieZoekTimerRef.current) clearTimeout(locatieZoekTimerRef.current);
+    locatieZoekTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(term)}.json?access_token=${TOKEN}&language=nl&country=nl&types=place,address,poi&limit=4`
+        );
+        const data = await res.json();
+        setLocatieResultaten(
+          (data.features ?? []).map((f: { id: string; text: string; place_name: string; geometry: { coordinates: [number, number] } }) => ({
+            id: f.id,
+            naam: f.text,
+            adres: f.place_name,
+            lng: f.geometry.coordinates[0],
+            lat: f.geometry.coordinates[1],
+          }))
+        );
+      } catch { /* silent */ }
+    }, 400);
+  }, [zoekterm]);
+
+  function kiesLocatieResultaat(locatie: LocatieResultaat) {
+    setZoekActief(false);
+    setZoekterm('');
+    setLocatieResultaten([]);
+    cameraRef.current?.setCamera({ centerCoordinate: [locatie.lng, locatie.lat], zoomLevel: 15, animationDuration: 600 });
+  }
+
   const zoekResultaten = zoekterm.trim().length > 0
     ? venues.filter((v) =>
         v.name.toLowerCase().includes(zoekterm.toLowerCase())
@@ -347,10 +416,14 @@ export default function KaartScreen() {
       {styleJSON && (
         <Mapbox.MapView
           style={styles.mapFlex}
-          styleJSON={styleJSON}
+          {...(styleJSON === '__fallback__'
+            ? { styleURL: FALLBACK_STYLE_URL }
+            : { styleJSON })}
           logoEnabled={false}
           attributionEnabled={false}
           scaleBarEnabled={false}
+          onCameraChanged={handleCameraChanged}
+          onMapIdle={handleMapIdle}
           onPress={() => { sluitVenueCard(); sluitEventCard(); }}
         >
           <Mapbox.Camera
@@ -468,9 +541,37 @@ export default function KaartScreen() {
         </Mapbox.MapView>
       )}
 
+      {/* Stad/provincie indicator */}
+      <View style={[styles.stadPillWrapper, { top: top + 12 }]} pointerEvents="none">
+        <View style={styles.stadPill}>
+          <Ionicons name="location" size={13} color="#374151" />
+          {kaartZoom >= 11 ? (
+            <>
+              <Text style={styles.stadPillStad}>{focusLocatie.stad}</Text>
+              {focusLocatie.provincie ? (
+                <>
+                  <Text style={styles.stadPillSep}>·</Text>
+                  <Text style={styles.stadPillProvincie}>{focusLocatie.provincie}</Text>
+                </>
+              ) : null}
+            </>
+          ) : kaartZoom >= 6 ? (
+            <Text style={styles.stadPillStad}>{focusLocatie.provincie || focusLocatie.stad}</Text>
+          ) : (
+            <Text style={styles.stadPillStad}>{focusLocatie.land}</Text>
+          )}
+        </View>
+      </View>
+
       <View style={[styles.filterKnopWrapper, { top: top + 12 }]}>
         <Pressable
           style={styles.filterKnop}
+          onPress={() => setZoekActief(true)}
+        >
+          <Ionicons name="search" size={22} color="#1A1A1A" />
+        </Pressable>
+        <Pressable
+          style={[styles.filterKnop, { marginTop: 8 }]}
           onPress={() => setFilterMenuOpen((v) => !v)}
         >
           <Ionicons name="options-outline" size={20} color="#1A1A1A" />
@@ -544,13 +645,6 @@ export default function KaartScreen() {
         ) : null}
       </Pressable>
 
-      <Pressable
-        style={[styles.zoekKnop, { top: top + 12 }]}
-        onPress={() => setZoekActief(true)}
-      >
-        <Ionicons name="search" size={22} color="#1A1A1A" />
-      </Pressable>
-
       {zoekActief && (
         <View style={[styles.zoekOverlay, { top: top + 8 }]}>
           <View style={styles.zoekBalkRij}>
@@ -587,12 +681,40 @@ export default function KaartScreen() {
                     </View>
                     <View style={styles.zoekRijInfo}>
                       <Text style={styles.zoekRijNaam} numberOfLines={1}>{venue.name}</Text>
-                      <Text style={styles.zoekRijAdres} numberOfLines={1}>{`${Number(venue.lat).toFixed(4)}, ${Number(venue.lng).toFixed(4)}`}</Text>
+                      {(() => {
+                      const tijd = openingstijdVandaag(venue.opening_hours);
+                      return tijd ? (
+                        <Text style={styles.zoekRijAdres} numberOfLines={1}>Vandaag: {tijd}</Text>
+                      ) : null;
+                    })()}
                     </View>
                     <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
                   </Pressable>
                 );
               })
+            )}
+            {locatieResultaten.length > 0 && (
+              <>
+                <View style={styles.zoekSectieDivider}>
+                  <Text style={styles.zoekSectieTitel}>Locaties</Text>
+                </View>
+                {locatieResultaten.map((loc) => (
+                  <Pressable
+                    key={loc.id}
+                    style={({ pressed }) => [styles.zoekRij, pressed && { opacity: 0.6 }]}
+                    onPress={() => kiesLocatieResultaat(loc)}
+                  >
+                    <View style={[styles.zoekIcoonRond, { backgroundColor: '#4B5563' }]}>
+                      <Ionicons name="map-outline" size={16} color="#fff" />
+                    </View>
+                    <View style={styles.zoekRijInfo}>
+                      <Text style={styles.zoekRijNaam} numberOfLines={1}>{loc.naam}</Text>
+                      <Text style={styles.zoekRijAdres} numberOfLines={1}>{loc.adres}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
+                  </Pressable>
+                ))}
+              </>
             )}
           </ScrollView>
         </View>
@@ -885,22 +1007,6 @@ const styles = StyleSheet.create({
   },
   meldingBadgeTekst: { fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
 
-  zoekKnop: {
-    position: 'absolute',
-    right: 72,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-
   zoekOverlay: {
     position: 'absolute',
     left: 16,
@@ -914,6 +1020,7 @@ const styles = StyleSheet.create({
     elevation: 8,
     maxHeight: 380,
     overflow: 'hidden',
+    zIndex: 2,
   },
 
   zoekBalkRij: {
@@ -953,4 +1060,40 @@ const styles = StyleSheet.create({
   zoekRijInfo: { flex: 1 },
   zoekRijNaam: { fontSize: 15, fontWeight: '600', color: '#1A1A1A' },
   zoekRijAdres: { fontSize: 12, color: '#888', marginTop: 1 },
+
+  zoekSectieDivider: {
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  zoekSectieTitel: { fontSize: 11, fontWeight: '600', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  stadPillWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 1,
+  },
+
+  stadPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  stadPillStad: { fontSize: 13, fontWeight: '700', color: '#1A1A1A' },
+  stadPillSep: { fontSize: 13, color: '#9CA3AF' },
+  stadPillProvincie: { fontSize: 12, fontWeight: '400', color: '#6B7280' },
 });

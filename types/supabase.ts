@@ -56,6 +56,42 @@ export type Database = {
           },
         ]
       }
+      blocks: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string | null
+          id: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string | null
+          id?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blocks_blocked_id_fkey"
+            columns: ["blocked_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blocks_blocker_id_fkey"
+            columns: ["blocker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       check_ins: {
         Row: {
           checked_in_at: string | null
@@ -96,6 +132,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      city_events: {
+        Row: {
+          active: boolean
+          color: string
+          created_at: string | null
+          description: string | null
+          end_date: string
+          event_type: string | null
+          id: string
+          lat: number | null
+          lng: number | null
+          location_type: string
+          name: string
+          photo_url: string | null
+          polygon: Json | null
+          start_date: string
+        }
+        Insert: {
+          active?: boolean
+          color?: string
+          created_at?: string | null
+          description?: string | null
+          end_date: string
+          event_type?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          location_type?: string
+          name: string
+          photo_url?: string | null
+          polygon?: Json | null
+          start_date: string
+        }
+        Update: {
+          active?: boolean
+          color?: string
+          created_at?: string | null
+          description?: string | null
+          end_date?: string
+          event_type?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          location_type?: string
+          name?: string
+          photo_url?: string | null
+          polygon?: Json | null
+          start_date?: string
+        }
+        Relationships: []
+      }
+      content_reports: {
+        Row: {
+          content_id: string
+          content_type: string
+          created_at: string | null
+          id: string
+          reden: string
+          toelichting: string | null
+        }
+        Insert: {
+          content_id: string
+          content_type: string
+          created_at?: string | null
+          id?: string
+          reden: string
+          toelichting?: string | null
+        }
+        Update: {
+          content_id?: string
+          content_type?: string
+          created_at?: string | null
+          id?: string
+          reden?: string
+          toelichting?: string | null
+        }
+        Relationships: []
       }
       direct_messages: {
         Row: {
@@ -258,6 +372,44 @@ export type Database = {
           },
           {
             foreignKeyName: "friendships_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      identity_verifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          session_id: string
+          status: string
+          updated_at: string | null
+          user_id: string
+          vendor_data: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          session_id: string
+          status?: string
+          updated_at?: string | null
+          user_id: string
+          vendor_data?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          session_id?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+          vendor_data?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "identity_verifications_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -453,11 +605,17 @@ export type Database = {
           created_at: string | null
           email: string | null
           id: string
+          identity_verified: boolean | null
+          identity_verified_at: string | null
+          is_admin: boolean
           name: string
           onboarding_completed_at: string | null
           preferred_group_size: number | null
           push_token: string | null
           trust_score: number | null
+          username: string | null
+          username_changed_at: string | null
+          verification_status: string
         }
         Insert: {
           age?: number | null
@@ -467,11 +625,17 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id: string
+          identity_verified?: boolean | null
+          identity_verified_at?: string | null
+          is_admin?: boolean
           name: string
           onboarding_completed_at?: string | null
           preferred_group_size?: number | null
           push_token?: string | null
           trust_score?: number | null
+          username?: string | null
+          username_changed_at?: string | null
+          verification_status?: string
         }
         Update: {
           age?: number | null
@@ -481,13 +645,58 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
+          identity_verified?: boolean | null
+          identity_verified_at?: string | null
+          is_admin?: boolean
           name?: string
           onboarding_completed_at?: string | null
           preferred_group_size?: number | null
           push_token?: string | null
           trust_score?: number | null
+          username?: string | null
+          username_changed_at?: string | null
+          verification_status?: string
         }
         Relationships: []
+      }
+      reports: {
+        Row: {
+          created_at: string | null
+          id: string
+          reason: string
+          reported_id: string
+          reporter_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          reason: string
+          reported_id: string
+          reporter_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          reason?: string
+          reported_id?: string
+          reporter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_reported_id_fkey"
+            columns: ["reported_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       spatial_ref_sys: {
         Row: {
@@ -578,10 +787,41 @@ export type Database = {
           },
         ]
       }
+      venue_photos: {
+        Row: {
+          created_at: string
+          id: string
+          photo_url: string
+          sort_order: number
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          photo_url: string
+          sort_order?: number
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          photo_url?: string
+          sort_order?: number
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_photos_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venues: {
         Row: {
           active: boolean | null
-          address: string
           created_at: string | null
           description: string | null
           id: string
@@ -595,7 +835,6 @@ export type Database = {
         }
         Insert: {
           active?: boolean | null
-          address: string
           created_at?: string | null
           description?: string | null
           id?: string
@@ -609,7 +848,6 @@ export type Database = {
         }
         Update: {
           active?: boolean | null
-          address?: string
           created_at?: string | null
           description?: string | null
           id?: string
@@ -1702,4 +1940,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
+<claude-code-hint v="1" type="plugin" value="supabase@claude-plugins-official" />

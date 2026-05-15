@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -33,12 +33,21 @@ function isGeldigEmail(s: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
 }
 
+type GebruikersnaamStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
+
+function valideerGebruikersnaamFormaat(u: string): boolean {
+  return /^[a-zA-Z0-9_]{3,}$/.test(u);
+}
+
 export default function OnboardingScreen() {
   const { top, bottom } = useSafeAreaInsets();
   const { startIdentiteitsVerificatie, bezig: verificatieBezig } = useIdentityVerification();
   const [authCheck, setAuthCheck] = useState(true);
-  const [stap, setStap] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [stap, setStap] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
   const [naam, setNaam] = useState('');
+  const [gebruikersnaam, setGebruikersnaam] = useState('');
+  const [gebruikersnaamStatus, setGebruikersnaamStatus] = useState<GebruikersnaamStatus>('idle');
+  const gebruikersnaamTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [email, setEmail] = useState('');
   const [geboorteDatum, setGeboorteDatum] = useState(defaultGeboorteDatum);
   const [geboorteDoorUserGewijzigd, setGeboorteDoorUserGewijzigd] = useState(false);
@@ -83,6 +92,29 @@ export default function OnboardingScreen() {
     if (fout) setFout(null);
   }
 
+  function handleGebruikersnaamChange(waarde: string) {
+    const gefilterd = waarde.replace(/[^a-zA-Z0-9_]/g, '');
+    setGebruikersnaam(gefilterd);
+    setFout(null);
+
+    if (gebruikersnaamTimerRef.current) clearTimeout(gebruikersnaamTimerRef.current);
+
+    if (!valideerGebruikersnaamFormaat(gefilterd)) {
+      setGebruikersnaamStatus(gefilterd.length === 0 ? 'idle' : 'invalid');
+      return;
+    }
+
+    setGebruikersnaamStatus('checking');
+    gebruikersnaamTimerRef.current = setTimeout(async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', gefilterd.toLowerCase())
+        .maybeSingle();
+      setGebruikersnaamStatus(data ? 'taken' : 'available');
+    }, 500);
+  }
+
   function volgendeVanStap1() {
     if (!naam.trim() || naam.trim().length < 2) {
       setFout('Vul minimaal 2 letters voor je naam in.');
@@ -93,32 +125,49 @@ export default function OnboardingScreen() {
   }
 
   function volgendeVanStap2() {
+    if (!valideerGebruikersnaamFormaat(gebruikersnaam)) {
+      setFout('Minimaal 3 tekens, alleen letters, cijfers en _.');
+      return;
+    }
+    if (gebruikersnaamStatus === 'taken') {
+      setFout('Deze gebruikersnaam is al bezet.');
+      return;
+    }
+    if (gebruikersnaamStatus !== 'available') {
+      setFout('Wacht even tot de beschikbaarheid is gecheckt.');
+      return;
+    }
+    setFout(null);
+    setStap(3);
+  }
+
+  function volgendeVanStap3() {
     if (!isGeldigEmail(email)) {
       setFout('Vul een geldig e-mailadres in.');
       return;
     }
     setFout(null);
     setGeboorteDoorUserGewijzigd(false);
-    setStap(3);
+    setStap(4);
   }
 
-  function volgendeVanStap3() {
+  function volgendeVanStap4() {
     const val = validatieGeboortedatum(geboorteDatum);
     if (!val.ok) {
       setFout(val.message);
       return;
     }
     setFout(null);
-    setStap(4);
+    setStap(5);
   }
 
-  function volgendeVanStap4() {
+  function volgendeVanStap5() {
     if (interesses.size < MIN_INTERESSES) {
       setFout(`Kies minimaal ${MIN_INTERESSES} interesses.`);
       return;
     }
     setFout(null);
-    setStap(5);
+    setStap(6);
   }
 
   async function slaProfielOp(userId: string): Promise<boolean> {
@@ -128,6 +177,7 @@ export default function OnboardingScreen() {
         .from('profiles')
         .update({
           name: naam.trim(),
+          username: gebruikersnaam.toLowerCase(),
           email: email.trim().toLowerCase(),
           birth_date: formatGeboorteDb(geboorteDatum),
           age: val.age,
@@ -186,17 +236,19 @@ export default function OnboardingScreen() {
 
   const titels: Record<number, string> = {
     1: 'Hoe mogen we je noemen?',
-    2: 'Je e-mailadres',
-    3: 'Je geboortedatum',
-    4: 'Wat vind jij leuk?',
-    5: 'Verifieer je identiteit',
+    2: 'Kies een gebruikersnaam',
+    3: 'Je e-mailadres',
+    4: 'Je geboortedatum',
+    5: 'Wat vind jij leuk?',
+    6: 'Verifieer je identiteit',
   };
   const subtitels: Record<number, string> = {
     1: 'Zo zien andere gebruikers je in de app.',
-    2: 'We gebruiken je e-mailadres alleen voor belangrijke updates en om je account veilig te houden.',
-    3: 'Zo weten we je leeftijd en kunnen we passende plekken voorstellen.',
-    4: `Kies minimaal ${MIN_INTERESSES} interesses. We gebruiken dit om je te matchen met anderen.`,
-    5: 'OpStap vereist een identiteitsverificatie zodat iedereen veilig de app kan gebruiken. Dit duurt ongeveer 2 minuten.',
+    2: 'Anderen kunnen je hiermee vinden. Minimaal 3 tekens, alleen letters, cijfers en _.',
+    3: 'We gebruiken je e-mailadres alleen voor belangrijke updates en om je account veilig te houden.',
+    4: 'Zo weten we je leeftijd en kunnen we passende plekken voorstellen.',
+    5: `Kies minimaal ${MIN_INTERESSES} interesses. We gebruiken dit om je te matchen met anderen.`,
+    6: 'OpStap vereist een identiteitsverificatie zodat iedereen veilig de app kan gebruiken. Dit duurt ongeveer 2 minuten.',
   };
 
   return (
@@ -211,7 +263,7 @@ export default function OnboardingScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.stappen}>
-            {[1, 2, 3, 4, 5].map((n) => (
+            {[1, 2, 3, 4, 5, 6].map((n) => (
               <View
                 key={n}
                 style={[styles.stapBol, stap === n && styles.stapBolActief, stap > n && styles.stapBolKlaar]}
@@ -238,6 +290,43 @@ export default function OnboardingScreen() {
           )}
 
           {stap === 2 && (
+            <View style={styles.gebruikersnaamBlok}>
+              <View style={styles.gebruikersnaamRij}>
+                <Text style={styles.atTeken}>@</Text>
+                <TextInput
+                  style={styles.gebruikersnaamInput}
+                  value={gebruikersnaam}
+                  onChangeText={handleGebruikersnaamChange}
+                  placeholder="jouwNaam_123"
+                  placeholderTextColor={COLORS.textLight}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                  onSubmitEditing={volgendeVanStap2}
+                />
+                {gebruikersnaamStatus === 'checking' && (
+                  <ActivityIndicator size="small" color={COLORS.primary} />
+                )}
+                {gebruikersnaamStatus === 'available' && (
+                  <Ionicons name="checkmark-circle" size={22} color="#38A169" />
+                )}
+                {(gebruikersnaamStatus === 'taken' || gebruikersnaamStatus === 'invalid') && (
+                  <Ionicons name="close-circle" size={22} color="#E53E3E" />
+                )}
+              </View>
+              {gebruikersnaamStatus === 'taken' && (
+                <Text style={styles.gebruikersnaamHint}>Deze gebruikersnaam is al bezet.</Text>
+              )}
+              {gebruikersnaamStatus === 'invalid' && gebruikersnaam.length > 0 && (
+                <Text style={styles.gebruikersnaamHint}>Minimaal 3 tekens, alleen letters, cijfers en _.</Text>
+              )}
+              {gebruikersnaamStatus === 'available' && (
+                <Text style={[styles.gebruikersnaamHint, { color: '#38A169' }]}>Beschikbaar!</Text>
+              )}
+            </View>
+          )}
+
+          {stap === 3 && (
             <TextInput
               style={styles.input}
               value={email}
@@ -249,11 +338,11 @@ export default function OnboardingScreen() {
               autoComplete="email"
               textContentType="emailAddress"
               returnKeyType="next"
-              onSubmitEditing={volgendeVanStap2}
+              onSubmitEditing={volgendeVanStap3}
             />
           )}
 
-          {stap === 3 && (
+          {stap === 4 && (
             <View style={styles.datumBlok}>
               <GeboortedatumKiezer
                 value={geboorteDatum}
@@ -278,7 +367,7 @@ export default function OnboardingScreen() {
             </View>
           )}
 
-          {stap === 4 && (
+          {stap === 5 && (
             <View style={styles.interesseBlok}>
               <Text style={styles.interesseTeller}>
                 {interesses.size} / {MAX_INTERESSES} geselecteerd
@@ -341,11 +430,7 @@ export default function OnboardingScreen() {
               <Pressable style={styles.secundairKnop} onPress={() => { setStap(2); setFout(null); }}>
                 <Text style={styles.secundairTekst}>Terug</Text>
               </Pressable>
-              <Pressable
-                style={[styles.primairKnop, styles.primairKlein, !geboorteCheck.ok && styles.knopDisabled]}
-                onPress={volgendeVanStap3}
-                disabled={!geboorteCheck.ok}
-              >
+              <Pressable style={[styles.primairKnop, styles.primairKlein]} onPress={volgendeVanStap3}>
                 <Text style={styles.primairKnopTekst}>Volgende</Text>
                 <Ionicons name="arrow-forward" size={20} color="#fff" />
               </Pressable>
@@ -358,9 +443,9 @@ export default function OnboardingScreen() {
                 <Text style={styles.secundairTekst}>Terug</Text>
               </Pressable>
               <Pressable
-                style={[styles.primairKnop, styles.primairKlein, interesses.size < MIN_INTERESSES && styles.knopDisabled]}
+                style={[styles.primairKnop, styles.primairKlein, !geboorteCheck.ok && styles.knopDisabled]}
                 onPress={volgendeVanStap4}
-                disabled={interesses.size < MIN_INTERESSES}
+                disabled={!geboorteCheck.ok}
               >
                 <Text style={styles.primairKnopTekst}>Volgende</Text>
                 <Ionicons name="arrow-forward" size={20} color="#fff" />
@@ -370,7 +455,23 @@ export default function OnboardingScreen() {
 
           {stap === 5 && (
             <View style={styles.knopRij}>
-              <Pressable style={styles.secundairKnop} onPress={() => { setStap(4); setFout(null); }} disabled={bezig || verificatieBezig}>
+              <Pressable style={styles.secundairKnop} onPress={() => { setStap(4); setFout(null); }}>
+                <Text style={styles.secundairTekst}>Terug</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.primairKnop, styles.primairKlein, interesses.size < MIN_INTERESSES && styles.knopDisabled]}
+                onPress={volgendeVanStap5}
+                disabled={interesses.size < MIN_INTERESSES}
+              >
+                <Text style={styles.primairKnopTekst}>Volgende</Text>
+                <Ionicons name="arrow-forward" size={20} color="#fff" />
+              </Pressable>
+            </View>
+          )}
+
+          {stap === 6 && (
+            <View style={styles.knopRij}>
+              <Pressable style={styles.secundairKnop} onPress={() => { setStap(5); setFout(null); }} disabled={bezig || verificatieBezig}>
                 <Text style={styles.secundairTekst}>Terug</Text>
               </Pressable>
               <Pressable
@@ -453,6 +554,27 @@ const styles = StyleSheet.create({
   leeftijdHint:    { textAlign: 'center', fontSize: 16, fontWeight: '700', color: COLORS.primary, paddingBottom: 8, paddingTop: 4 },
   leeftijdNeutraal: { textAlign: 'center', fontSize: 14, color: COLORS.textLight, paddingBottom: 8, paddingTop: 4, lineHeight: 20, paddingHorizontal: 8 },
   leeftijdFout:    { textAlign: 'center', fontSize: 14, color: COLORS.textLight, paddingBottom: 8, paddingHorizontal: 8 },
+
+  gebruikersnaamBlok: { marginBottom: 16 },
+  gebruikersnaamRij: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#ECECEC',
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: Platform.OS === 'ios' ? 16 : 14,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  atTeken: { fontSize: 20, fontWeight: '700', color: COLORS.textLight },
+  gebruikersnaamInput: { flex: 1, fontSize: 18, fontWeight: '600', color: COLORS.text },
+  gebruikersnaamHint: { marginTop: 8, fontSize: 13, color: '#E53E3E', textAlign: 'center' },
 
   interesseBlok:   { marginBottom: 16, gap: 12 },
   interesseTeller: { fontSize: 13, fontWeight: '600', color: COLORS.secondary, textAlign: 'center' },

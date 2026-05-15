@@ -21,7 +21,6 @@ const MAX_FOTOS = 5;
 const FOTO_GROOTTE = 110;
 
 const MENU_RIJEN = [
-  { label: 'Naam en leeftijd aanpassen', route: '/profiel-naam-bewerken' },
   { label: 'Profielomschrijving wijzigen', route: '/profiel-bio-bewerken' },
   { label: 'Interesses aanpassen', route: '/interesses-bewerken' },
   { label: 'Eigenschappen aanpassen', route: null },

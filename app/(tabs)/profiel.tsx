@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { supabase } from '../../services/supabase';
 import { COLORS } from '../../constants/colors';
+import { StatsTab } from '../../components/StatsTab';
 
 const PAARS = COLORS.secondary;
 
@@ -38,18 +39,21 @@ function interesseEmoji(interesse: string): string {
   return INTERESSE_EMOJI[interesse.toLowerCase()] ?? '✨';
 }
 
-const TABS = ['Info', 'Stats', 'Communities'] as const;
+const TABS = ['Info', 'Stats'] as const;
 type TabNaam = (typeof TABS)[number];
 
 export default function ProfielScreen() {
   const { top, bottom } = useSafeAreaInsets();
   const [actieveTab, setActieveTab] = useState<TabNaam>('Info');
   const [naam, setNaam] = useState('');
+  const [gebruikersnaam, setGebruikersnaam] = useState<string | null>(null);
+  const [trustScore, setTrustScore] = useState<number | null>(null);
   const [leeftijd, setLeeftijd] = useState<number | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [verificatieStatus, setVerificatieStatus] = useState<string | null>(null);
   const [interesses, setInteresses] = useState<string[]>([]);
   const [extraFotos, setExtraFotos] = useState<{ id: string; photo_url: string }[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -58,15 +62,18 @@ export default function ProfielScreen() {
         const { data: { session } } = await supabase.auth.getSession();
         const user = session?.user;
         if (!user) return;
+        setUserId(user.id);
 
         const [profielRes, interessesRes, fotosRes] = await Promise.all([
-          supabase.from('profiles').select('name, avatar_url, age, verification_status').eq('id', user.id).single(),
+          supabase.from('profiles').select('name, username, avatar_url, age, verification_status, trust_score').eq('id', user.id).single(),
           supabase.from('user_interests').select('interest').eq('user_id', user.id),
           supabase.from('profile_photos').select('id, photo_url').eq('user_id', user.id).order('position'),
         ]);
 
         if (profielRes.data) {
           setNaam(profielRes.data.name ?? '');
+          setGebruikersnaam(profielRes.data.username ?? null);
+          setTrustScore(profielRes.data.trust_score ?? null);
           setLeeftijd(profielRes.data.age ?? null);
           setAvatarUrl(profielRes.data.avatar_url ?? null);
           setVerificatieStatus(profielRes.data.verification_status ?? null);
@@ -115,6 +122,26 @@ export default function ProfielScreen() {
                   <Text style={styles.leeftijdTekst}> {leeftijd}</Text>
                 )}
               </View>
+              {gebruikersnaam && (
+                <Text style={styles.gebruikersnaamTekst}>@{gebruikersnaam}</Text>
+              )}
+              {trustScore !== null && (
+                <View style={styles.sterrenRij}>
+                  {[1, 2, 3, 4, 5].map((n) => {
+                    const vol = trustScore >= n;
+                    const half = !vol && trustScore >= n - 0.5;
+                    return (
+                      <Ionicons
+                        key={n}
+                        name={vol ? 'star' : half ? 'star-half' : 'star-outline'}
+                        size={14}
+                        color="#F59E0B"
+                      />
+                    );
+                  })}
+                  <Text style={styles.sterrenScore}>{Number(trustScore).toFixed(1)}</Text>
+                </View>
+              )}
               <Pressable onPress={() => router.push('/profiel-bewerken')}>
                 <Text style={styles.bewerkLink}>Profiel bewerken</Text>
               </Pressable>
@@ -189,16 +216,9 @@ export default function ProfielScreen() {
             )}
 
             {actieveTab === 'Stats' && (
-              <View style={styles.sectie}>
-                <Text style={styles.leegTekst}>Stats komen binnenkort.</Text>
-              </View>
+              <StatsTab userId={userId} trustScore={trustScore} />
             )}
 
-            {actieveTab === 'Communities' && (
-              <View style={styles.sectie}>
-                <Text style={styles.leegTekst}>Communities komen binnenkort.</Text>
-              </View>
-            )}
           </ScrollView>
         </>
       )}
@@ -220,6 +240,9 @@ const styles = StyleSheet.create({
   naamRij:        { flexDirection: 'row', alignItems: 'baseline' },
   naamVet:        { fontSize: 28, fontWeight: '700', color: COLORS.text, letterSpacing: -0.5 },
   leeftijdTekst:  { fontSize: 28, fontWeight: '400', color: '#C7C7CC', letterSpacing: -0.5 },
+  gebruikersnaamTekst: { fontSize: 14, fontWeight: '500', color: COLORS.textLight },
+  sterrenRij: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  sterrenScore: { fontSize: 12, fontWeight: '600', color: '#F59E0B', marginLeft: 2 },
   bewerkLink:     { fontSize: 15, fontWeight: '500', color: PAARS },
 
   tabBalk:        { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.12)', paddingHorizontal: 16 },

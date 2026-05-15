@@ -1,20 +1,25 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase';
 import { Tables } from '../types/supabase';
+import { getCached, setCached } from '../utils/cache';
 
 export type VenuePin = Pick<Tables<'venues'>, 'id' | 'name' | 'lat' | 'lng' | 'type' | 'description' | 'photo_url' | 'opening_hours'>;
 
+const CACHE_KEY = 'venues';
+const TTL = 15 * 60 * 1000;
+
 export function useVenues() {
-  const [venues, setVenues] = useState<VenuePin[]>([]);
+  const [venues, setVenues] = useState<VenuePin[]>(() => getCached<VenuePin[]>(CACHE_KEY, TTL) ?? []);
 
   useEffect(() => {
+    if (getCached<VenuePin[]>(CACHE_KEY, TTL)) return;
     supabase
       .from('venues')
       .select('id, name, lat, lng, type, description, photo_url, opening_hours')
       .eq('active', true)
       .then(({ data, error }) => {
         if (error) console.error('useVenues fout:', error.message);
-        if (data) setVenues(data);
+        if (data) { setCached(CACHE_KEY, data); setVenues(data); }
       });
   }, []);
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../services/supabase';
+import { getCached, setCached } from '../utils/cache';
 
 // city_events is not yet in the generated Supabase types — cast to bypass until types are regenerated
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,10 +21,14 @@ export type CityEventPin = {
   photo_url: string | null;
 };
 
+const CACHE_KEY = 'city_events';
+const TTL = 5 * 60 * 1000;
+
 export function useCityEvents() {
-  const [events, setEvents] = useState<CityEventPin[]>([]);
+  const [events, setEvents] = useState<CityEventPin[]>(() => getCached<CityEventPin[]>(CACHE_KEY, TTL) ?? []);
 
   useEffect(() => {
+    if (getCached<CityEventPin[]>(CACHE_KEY, TTL)) return;
     const today = new Date().toISOString().slice(0, 10);
     db
       .from('city_events')
@@ -33,7 +38,7 @@ export function useCityEvents() {
       .gte('end_date', today)
       .then(({ data, error }: { data: CityEventPin[] | null; error: { message: string } | null }) => {
         if (error) console.error('useCityEvents fout:', error.message);
-        if (data) setEvents(data);
+        if (data) { setCached(CACHE_KEY, data); setEvents(data); }
       });
   }, []);
 
