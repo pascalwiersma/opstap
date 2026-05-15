@@ -44,6 +44,8 @@ export default function RootLayout() {
         <Stack.Screen name="event/aanmaken" options={{ title: 'Event aanmaken' }} />
         <Stack.Screen name="event/[id]" options={{ title: 'Event' }} />
         <Stack.Screen name="venue/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="city-event/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="favorieten" options={{ headerShown: false }} />
       </Stack>
     </GestureHandlerRootView>
   );

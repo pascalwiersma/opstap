@@ -1,9 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/colors';
 import { supabase } from '../../services/supabase';
+import { MeldingModal } from '../../components/MeldingModal';
 
 const VENUE_KLEUREN: Record<string, string> = {
   cafe: '#6D4C41',
@@ -54,11 +58,15 @@ const DAGEN_NL: Record<string, string> = {
 type Venue = {
   id: string;
   name: string;
-  address: string;
   type: string | null;
   description: string | null;
   photo_url: string | null;
   opening_hours: Record<string, unknown> | null;
+};
+
+type VenuePhoto = {
+  photo_url: string;
+  sort_order: number;
 };
 
 type Event = {
@@ -83,24 +91,34 @@ export default function VenueDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { top } = useSafeAreaInsets();
   const [venue, setVenue] = useState<Venue | null>(null);
+  const [venuePhotos, setVenuePhotos] = useState<VenuePhoto[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [favoriet, setFavoriet] = useState(false);
   const [favorietBezig, setFavorietBezig] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [meldingOpen, setMeldingOpen] = useState(false);
+  const schermBreedte = Dimensions.get('window').width;
 
   useEffect(() => {
     if (!id) return;
     (async () => {
-      const [venueRes, userRes] = await Promise.all([
+      const [venueRes, photosRes, userRes] = await Promise.all([
         supabase
           .from('venues')
-          .select('id, name, address, type, description, photo_url, opening_hours')
+          .select('id, name, type, description, photo_url, opening_hours')
           .eq('id', id)
           .single(),
+        supabase
+          .from('venue_photos')
+          .select('photo_url, sort_order')
+          .eq('venue_id', id)
+          .order('sort_order'),
         supabase.auth.getUser(),
       ]);
 
       if (venueRes.data) setVenue(venueRes.data as Venue);
+      if (photosRes.data) setVenuePhotos(photosRes.data as VenuePhoto[]);
 
       const userId = userRes.data.user?.id;
       if (userId) {
@@ -161,9 +179,15 @@ export default function VenueDetailScreen() {
   const kleur = VENUE_KLEUREN[venue.type ?? ''] ?? '#888';
   const icoon = VENUE_ICONS[venue.type ?? ''] ?? 'location-outline';
   const label = VENUE_LABELS[venue.type ?? ''] ?? venue.type ?? '';
+  const DAGEN_VOLGORDE = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'];
   const openingsuren = venue.opening_hours
-    ? Object.entries(venue.opening_hours)
+    ? Object.entries(venue.opening_hours).sort(
+        ([a], [b]) => DAGEN_VOLGORDE.indexOf(a) - DAGEN_VOLGORDE.indexOf(b)
+      )
     : [];
+  const fotoUrls: string[] = venuePhotos.length > 0
+    ? venuePhotos.map(p => p.photo_url)
+    : venue.photo_url ? [venue.photo_url] : [];
 
   return (
     <View style={styles.wrapper}>
@@ -172,16 +196,49 @@ export default function VenueDetailScreen() {
         contentContainerStyle={styles.scrollInhoud}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header foto / kleur blok */}
+        {/* Header foto / carousel */}
         <View style={[styles.headerBlok, { height: HEADER_HOOGTE, backgroundColor: kleur }]}>
-          {venue.photo_url ? (
-            <Image source={{ uri: venue.photo_url }} style={styles.headerFoto} resizeMode="cover" />
+          {fotoUrls.length > 0 ? (
+            <>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                scrollEventThrottle={16}
+                onMomentumScrollEnd={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+                  const index = Math.round(e.nativeEvent.contentOffset.x / schermBreedte);
+                  setCarouselIndex(index);
+                }}
+                style={{ width: schermBreedte, height: HEADER_HOOGTE }}
+              >
+                {fotoUrls.map((url, i) => (
+                  <Image
+                    key={i}
+                    source={{ uri: url }}
+                    style={{ width: schermBreedte, height: HEADER_HOOGTE }}
+                    resizeMode="cover"
+                  />
+                ))}
+              </ScrollView>
+              {fotoUrls.length > 1 && (
+                <View style={styles.dotsRij}>
+                  {fotoUrls.map((_, i) => (
+                    <View
+                      key={i}
+                      style={[styles.dot, i === carouselIndex && styles.dotActief]}
+                    />
+                  ))}
+                </View>
+              )}
+            </>
           ) : (
-            <View style={styles.headerIconWrapper}>
-              <Ionicons name={icoon} size={72} color="rgba(255,255,255,0.35)" />
-            </View>
+            <>
+              <View style={styles.headerIconWrapper}>
+                <Ionicons name={icoon} size={72} color="rgba(255,255,255,0.35)" />
+              </View>
+              <View style={[styles.headerOverlay, { backgroundColor: `${kleur}99` }]} />
+            </>
           )}
-          <View style={[styles.headerOverlay, { backgroundColor: `${kleur}99` }]} />
         </View>
 
         {/* Naam kaartje */}
@@ -195,11 +252,6 @@ export default function VenueDetailScreen() {
                 color={favoriet ? '#E53E3E' : '#C7C7CC'}
               />
             </Pressable>
-          </View>
-
-          <View style={styles.adresRij}>
-            <Ionicons name="location-outline" size={16} color={COLORS.textLight} />
-            <Text style={styles.adres}>{venue.address}</Text>
           </View>
 
           <View style={[styles.badge, { backgroundColor: kleur }]}>
@@ -253,12 +305,31 @@ export default function VenueDetailScreen() {
             ))}
           </View>
         )}
+        {/* Melding link */}
+        <Pressable style={styles.meldingLink} onPress={() => setMeldingOpen(true)}>
+          <Text style={styles.meldingLinkTekst}>Klopt deze informatie?</Text>
+        </Pressable>
       </ScrollView>
 
       {/* Terugknop over de foto */}
       <Pressable style={[styles.terugKnop, { top: top + 12 }]} onPress={() => router.back()} hitSlop={8}>
         <Ionicons name="chevron-back" size={22} color="#fff" />
       </Pressable>
+
+      <MeldingModal
+        zichtbaar={meldingOpen}
+        contentType="venue"
+        contentId={venue.id}
+        opties={[
+          'Naam klopt niet',
+          'Adres klopt niet',
+          'Openingstijden kloppen niet',
+          'Locatie op kaart klopt niet',
+          "Foto's kloppen niet",
+          'Anders',
+        ]}
+        onSluit={() => setMeldingOpen(false)}
+      />
     </View>
   );
 }
@@ -273,6 +344,27 @@ const styles = StyleSheet.create({
   headerFoto: { ...StyleSheet.absoluteFillObject },
   headerIconWrapper: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   headerOverlay: { ...StyleSheet.absoluteFillObject },
+
+  dotsRij: {
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  dotActief: {
+    backgroundColor: '#fff',
+    width: 18,
+    borderRadius: 3,
+  },
 
   naamKaart: {
     marginHorizontal: 16,
@@ -290,8 +382,6 @@ const styles = StyleSheet.create({
 
   naamRij:    { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   naam:       { flex: 1, fontSize: 22, fontWeight: '800', color: COLORS.text, lineHeight: 28 },
-  adresRij:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  adres:      { fontSize: 14, color: COLORS.textLight, flex: 1 },
 
   badge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   badgeTekst: { fontSize: 12, fontWeight: '700', color: '#fff' },
@@ -330,6 +420,19 @@ const styles = StyleSheet.create({
   },
   eventTitel: { fontSize: 15, fontWeight: '600', color: COLORS.text },
   eventTijd:  { fontSize: 13, color: COLORS.textLight, marginTop: 2 },
+
+  meldingLink: {
+    alignSelf: 'center',
+    marginTop: 24,
+    marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  meldingLinkTekst: {
+    fontSize: 13,
+    color: COLORS.textLight,
+    textDecorationLine: 'underline',
+  },
 
   terugKnop: {
     position: 'absolute',
