@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Mapbox from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../services/supabase';
@@ -177,13 +177,12 @@ export default function KaartScreen() {
     });
   }
 
-  const zichtbareVenues = venues.filter((v) => {
+  const zichtbareVenues = useMemo(() => venues.filter((v) => {
     if (alleenFavorieten) return favorietIds.has(v.id);
     return actieveFilters.has((v.type ?? '') as VenueTyp);
-  });
+  }), [venues, alleenFavorieten, favorietIds, actieveFilters]);
 
-  // GeoJSON voor ShapeSource — geselecteerde venue apart renderen als MarkerView
-  const geojson = {
+  const geojson = useMemo(() => ({
     type: 'FeatureCollection' as const,
     features: zichtbareVenues
       .filter((v) => v.id !== selectedVenue?.id)
@@ -192,10 +191,9 @@ export default function KaartScreen() {
         geometry: { type: 'Point' as const, coordinates: [Number(v.lng), Number(v.lat)] },
         properties: { id: v.id, naam: v.name, type: v.type ?? '' },
       })),
-  };
+  }), [zichtbareVenues, selectedVenue?.id]);
 
-  // GeoJSON voor stad-evenementen (regio's)
-  const eventRegionsGeoJSON = {
+  const eventRegionsGeoJSON = useMemo(() => ({
     type: 'FeatureCollection' as const,
     features: !eventenZichtbaar ? [] : cityEvents
       .filter((e) => e.location_type === 'region' && e.polygon && e.polygon.length >= 3)
@@ -207,10 +205,9 @@ export default function KaartScreen() {
         },
         properties: { id: e.id, color: e.color ?? EVENT_KLEUR },
       })),
-  };
+  }), [cityEvents, eventenZichtbaar]);
 
-  // GeoJSON voor stad-evenementen (punten)
-  const eventPointsGeoJSON = {
+  const eventPointsGeoJSON = useMemo(() => ({
     type: 'FeatureCollection' as const,
     features: !eventenZichtbaar ? [] : cityEvents
       .filter((e) => e.location_type === 'point' && e.lat != null && e.lng != null)
@@ -219,7 +216,7 @@ export default function KaartScreen() {
         geometry: { type: 'Point' as const, coordinates: [Number(e.lng), Number(e.lat)] },
         properties: { id: e.id, color: e.color ?? EVENT_KLEUR },
       })),
-  };
+  }), [cityEvents, eventenZichtbaar]);
 
   useEffect(() => {
     if (!cachedStyleJSON) {
@@ -234,7 +231,7 @@ export default function KaartScreen() {
   }, []);
 
   useEffect(() => {
-    if (!locatie || !styleJSON || gecentreerdRef.current) return;
+    if (!locatie || gecentreerdRef.current) return;
     gecentreerdRef.current = true;
     setTimeout(() => {
       cameraRef.current?.setCamera({ centerCoordinate: locatie, zoomLevel: 15, animationDuration: 800 });
@@ -413,12 +410,11 @@ export default function KaartScreen() {
 
   return (
     <View style={styles.container}>
-      {styleJSON && (
-        <Mapbox.MapView
+      <Mapbox.MapView
           style={styles.mapFlex}
-          {...(styleJSON === '__fallback__'
-            ? { styleURL: FALLBACK_STYLE_URL }
-            : { styleJSON })}
+          {...(styleJSON && styleJSON !== '__fallback__'
+            ? { styleJSON }
+            : { styleURL: FALLBACK_STYLE_URL })}
           logoEnabled={false}
           attributionEnabled={false}
           scaleBarEnabled={false}
@@ -539,7 +535,6 @@ export default function KaartScreen() {
             </Mapbox.MarkerView>
           )}
         </Mapbox.MapView>
-      )}
 
       {/* Stad/provincie indicator */}
       <View style={[styles.stadPillWrapper, { top: top + 12 }]} pointerEvents="none">

@@ -30,9 +30,11 @@ export default function Index() {
 
   if (!bestemming) {
     return (
-      <View style={styles.midden}>
-        <Image source={require('../assets/icon.png')} style={styles.logo} resizeMode="contain" />
-        <ActivityIndicator size="small" color={COLORS.primary} style={styles.spinner} />
+      <View style={styles.scherm}>
+        <View style={styles.logoWrapper}>
+          <Image source={require('../assets/icon.png')} style={styles.logo} resizeMode="cover" />
+        </View>
+        <ActivityIndicator size="large" color="rgba(255,255,255,0.9)" style={styles.spinner} />
       </View>
     );
   }
@@ -41,7 +43,29 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
-  midden: { flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  logo: { width: 72, height: 72 },
-  spinner: { marginTop: 16 },
+  scherm: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoWrapper: {
+    width: 140,
+    height: 140,
+    borderRadius: 36,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  logo: {
+    width: 140,
+    height: 140,
+  },
+  spinner: {
+    position: 'absolute',
+    bottom: '15%',
+  },
 });

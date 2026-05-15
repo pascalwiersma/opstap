@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { supabase } from '../services/supabase';
 import { getCached, invalidateCache, setCached } from '../utils/cache';
 
@@ -11,12 +11,18 @@ function cacheKey(userId: string) {
 export function useFavorites() {
   const [favorietIds, setFavorietIds] = useState<Set<string>>(new Set());
 
-  async function laden() {
+  const laden = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const key = cacheKey(user.id);
     const cached = getCached<string[]>(key, TTL);
-    if (cached) { setFavorietIds(new Set(cached)); return; }
+    if (cached) {
+      setFavorietIds(prev => {
+        const same = cached.length === prev.size && cached.every(id => prev.has(id));
+        return same ? prev : new Set(cached);
+      });
+      return;
+    }
     const { data } = await supabase
       .from('user_favorites')
       .select('venue_id')
@@ -26,7 +32,7 @@ export function useFavorites() {
       setCached(key, ids);
       setFavorietIds(new Set(ids));
     }
-  }
+  }, []);
 
   async function toggle(venueId: string) {
     const { data: { user } } = await supabase.auth.getUser();
